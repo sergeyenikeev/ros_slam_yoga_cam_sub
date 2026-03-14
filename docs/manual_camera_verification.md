@@ -102,8 +102,6 @@ scripts\run_in_ros_env.cmd ros2 topic echo --once /tf_static
 
 Если инструмент установлен, тот же скрипт можно запустить без `-CheckOnly`.
 
-## 10. Если камера не открывается
-
 ## 10. Проверка реальной калибровки
 
 Если у вас уже есть `ost.yaml` или другой стандартный YAML от `camera_calibration`, импортируйте его:
@@ -120,7 +118,22 @@ scripts\run_in_ros_env.cmd ros2 run yoga_cam_sub camera_publisher --ros-args -p 
 
 В логах должны появиться сообщения `Загружен calibration_file` и `Подготовлен CameraInfo ... Значения калибровки загружены из calibration_file`.
 
-## 11. Если камера не открывается
+## 11. Preflight-проверка потока перед SLAM
+
+После импорта калибровки полезно проверить сам поток:
+
+```powershell
+.\scripts\run_slam_preflight.ps1 calibration_file:=C:/dev/ros2_ws/src/yoga_cam_sub/config/camera_calibration.local.yaml
+```
+
+Ожидаемые признаки успеха:
+
+- приходит первый `CameraInfo`;
+- в логах появляются строки `Preflight получил кадр #...`;
+- в summary виден `average_fps`;
+- прогон завершается сообщением `SLAM preflight завершён успешно`.
+
+## 12. Если камера не открывается
 
 Попробуйте fallback на `CAP_ANY`:
 

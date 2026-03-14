@@ -6,6 +6,7 @@
 
 - реализован собственный узел `camera_publisher` на C++ с публикацией `sensor_msgs/msg/Image` и `sensor_msgs/msg/CameraInfo`;
 - реализован диагностический subscriber `image_counter` с параметрами `image_topic` и `max_frames`;
+- реализован узел `camera_slam_preflight`, который проверяет согласованность `Image`/`CameraInfo` и измеряет фактический FPS потока;
 - вынесена тестируемая логика подготовки кадров и `CameraInfo` в библиотеку `camera_utils`;
 - добавлены unit-тесты для валидации параметров, преобразования кадров, генерации `Image` и `CameraInfo`;
 - добавлены launch-файлы, smoke-тесты, сценарий полного прогона и скрипты сборки/диагностики;
@@ -17,17 +18,21 @@
 
 - `src/camera_publisher.cpp` — основной publisher камеры;
 - `src/image_counter.cpp` — subscriber для проверки потока изображений;
-- `src/camera_utils.cpp` и `include/yoga_cam_sub/camera_utils.hpp` — тестируемая логика преобразования кадров и подготовки `CameraInfo`;
+- `src/camera_slam_preflight.cpp` — автоматическая пред-проверка потока перед интеграцией SLAM;
+- `src/camera_utils.cpp`, `src/stream_diagnostics.cpp`, `include/yoga_cam_sub/*.hpp` — тестируемая логика преобразования кадров, подготовки `CameraInfo` и анализа потока;
 - `config/camera_publisher.params.yaml` — базовые параметры узлов;
 - `config/camera_calibration.template.yaml` — шаблон для реальной калибровки;
 - `config/camera_calibration.sample.yaml` — пример стандартного YAML-файла от `camera_calibration`;
 - `launch/camera_publisher.launch.py` — запуск только publisher;
 - `launch/camera_pipeline.launch.py` — совместный запуск publisher и subscriber;
+- `launch/camera_slam_preflight.launch.py` — запуск publisher и preflight-проверки в одном сценарии;
 - `launch/static_camera_tf.launch.py` — публикация статического TF между `camera_link` и `camera_optical_frame`;
 - `launch/camera_slam_ready.launch.py` — связка publisher + статический TF для следующего этапа SLAM;
 - `scripts/full_validation.ps1` — единый автоматический прогон всех доступных проверок;
 - `scripts/run_camera_calibration.ps1` — подготовка и запуск калибровки камеры;
 - `scripts/import_camera_calibration.ps1` — импорт и валидация YAML-калибровки;
+- `scripts/run_slam_preflight.ps1` — запуск автоматической preflight-проверки потока камеры;
+- `scripts/slam_preflight_smoke_test.ps1` — smoke-тест preflight-сценария на реальной камере;
 - `scripts/tf_smoke_test.ps1` — автоматическая проверка публикации статического TF;
 - `scripts/run_slam_ready_pipeline.ps1` — запуск SLAM-ready конфигурации камеры;
 - `docs/` — подробная документация по сборке, ручной проверке и подготовке к SLAM.
@@ -72,7 +77,7 @@ scripts\build_workspace.cmd
 .\scripts\full_validation.ps1
 ```
 
-Сценарий последовательно выполняет диагностику окружения, сборку, unit/lint тесты, smoke-тест subscriber, проверку реальных топиков и launch smoke-тест.
+Сценарий последовательно выполняет диагностику окружения, сборку, unit/lint тесты, smoke-тест subscriber, проверку YAML-калибровки, проверку реальных топиков, SLAM preflight smoke-тест и launch smoke-тест.
 
 ### 6. Подготовка калибровки
 
@@ -94,7 +99,15 @@ scripts\build_workspace.cmd
 
 Скрипт скопирует файл в `config/camera_calibration.local.yaml`, прогонит валидацию через `camera_calibration_inspector` и выведет готовые команды запуска.
 
-### 8. Запуск SLAM-ready конфигурации
+### 8. Preflight-проверка потока перед SLAM
+
+```powershell
+.\scripts\run_slam_preflight.ps1 calibration_file:=C:/dev/ros2_ws/src/yoga_cam_sub/config/camera_calibration.local.yaml
+```
+
+Сценарий поднимает `camera_publisher`, проверяет согласованность `Image` и `CameraInfo`, измеряет фактический FPS и завершает запуск с понятным статусом.
+
+### 9. Запуск SLAM-ready конфигурации
 
 ```powershell
 .\scripts\run_slam_ready_pipeline.ps1
@@ -139,6 +152,12 @@ scripts\build_workspace.cmd
 .\scripts\tf_smoke_test.ps1
 ```
 
+Проверить только preflight-подготовку для SLAM можно отдельно:
+
+```powershell
+.\scripts\slam_preflight_smoke_test.ps1
+```
+
 ## Почему раньше падала сборка
 
 Проблема была не в самом `CMakeLists.txt`, а в окружении запуска `colcon`:
@@ -157,12 +176,14 @@ scripts\build_workspace.cmd
 
 1. Выполнить реальную калибровку камеры и сохранить матрицы в отдельный YAML-файл.
 2. Импортировать YAML через `scripts/import_camera_calibration.ps1` и запустить pipeline уже с реальным `CameraInfo`.
-3. Подстроить параметры статического TF под реальное положение камеры на ноутбуке или на роботе.
-4. Подключить следующий monocular SLAM-модуль к `/camera/image_raw` и `/camera/camera_info`.
-5. При необходимости расширить пакет диагностикой джиттера, пропуска кадров и transport-вариантами.
+3. Прогнать `scripts/run_slam_preflight.ps1` и зафиксировать рабочие FPS/разрешение для будущего SLAM.
+4. Подстроить параметры статического TF под реальное положение камеры на ноутбуке или на роботе.
+5. Подключить следующий monocular SLAM-модуль к `/camera/image_raw` и `/camera/camera_info`.
+6. При необходимости расширить пакет диагностикой джиттера, пропуска кадров и transport-вариантами.
 
 ## Дополнительная документация
 
 - `docs/windows_build.md` — настройка сборки и разбор Windows-окружения;
 - `docs/manual_camera_verification.md` — ручная проверка камеры и топиков;
-- `docs/calibration_and_slam.md` — переход к калибровке камеры и следующему шагу visual SLAM.
+- `docs/calibration_and_slam.md` — переход к калибровке камеры и следующему шагу visual SLAM;
+- `docs/slam_preflight.md` — подробности по автоматической preflight-проверке потока.

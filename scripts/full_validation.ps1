@@ -49,6 +49,12 @@ if (-not $SkipCameraChecks) {
   if ($LASTEXITCODE -ne 0) {
     throw 'Проверка топиков завершилась с ошибкой.'
   }
+
+  Write-Host "`n=== SLAM preflight smoke-тест ==="
+  & (Join-Path $PSScriptRoot 'slam_preflight_smoke_test.ps1')
+  if ($LASTEXITCODE -ne 0) {
+    throw 'SLAM preflight smoke-тест завершился с ошибкой.'
+  }
 }
 
 if (-not $SkipLaunchCheck) {

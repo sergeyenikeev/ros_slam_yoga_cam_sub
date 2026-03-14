@@ -98,6 +98,12 @@ colcon build --merge-install --packages-select yoga_cam_sub --cmake-clean-cache 
 .\scripts\calibration_file_smoke_test.ps1
 ```
 
+Отдельная preflight-проверка потока камеры перед SLAM:
+
+```powershell
+.\scripts\slam_preflight_smoke_test.ps1
+```
+
 Отдельная проверка статического TF:
 
 ```powershell
@@ -144,6 +150,16 @@ C:\pixi_ws\.pixi\envs\default\Library\cmake\OpenCVConfig.cmake
 ```
 
 Скрипт валидирует файл через `camera_calibration_inspector` и подсказывает готовую команду запуска с `calibration_file`.
+
+### Нужно быстро понять, готов ли поток к SLAM
+
+Используйте:
+
+```powershell
+.\scripts\run_slam_preflight.ps1 calibration_file:=C:/dev/ros2_ws/src/yoga_cam_sub/config/camera_calibration.local.yaml
+```
+
+Сценарий проверяет согласованность `Image`/`CameraInfo` и печатает фактический FPS потока.
 
 ### В консоли виден warning про RTI Connext DDS
 

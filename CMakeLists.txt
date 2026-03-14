@@ -28,7 +28,9 @@ find_package(rclcpp REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(OpenCV REQUIRED COMPONENTS core imgproc videoio)
 
-add_library(camera_utils src/camera_utils.cpp)
+add_library(camera_utils
+  src/camera_utils.cpp
+  src/stream_diagnostics.cpp)
 target_include_directories(camera_utils
   PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
@@ -47,8 +49,17 @@ add_executable(camera_calibration_inspector src/camera_calibration_inspector.cpp
 target_link_libraries(camera_calibration_inspector camera_utils)
 ament_target_dependencies(camera_calibration_inspector rclcpp sensor_msgs)
 
+add_executable(camera_slam_preflight src/camera_slam_preflight.cpp)
+target_link_libraries(camera_slam_preflight camera_utils)
+ament_target_dependencies(camera_slam_preflight rclcpp sensor_msgs)
+
 install(
-  TARGETS camera_utils image_counter camera_publisher camera_calibration_inspector
+  TARGETS
+    camera_utils
+    image_counter
+    camera_publisher
+    camera_calibration_inspector
+    camera_slam_preflight
   EXPORT export_${PROJECT_NAME}
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
@@ -74,6 +85,11 @@ if(BUILD_TESTING)
   ament_add_gtest(test_camera_utils test/test_camera_utils.cpp)
   if(TARGET test_camera_utils)
     target_link_libraries(test_camera_utils camera_utils)
+  endif()
+
+  ament_add_gtest(test_stream_diagnostics test/test_stream_diagnostics.cpp)
+  if(TARGET test_stream_diagnostics)
+    target_link_libraries(test_stream_diagnostics camera_utils)
   endif()
 endif()
 

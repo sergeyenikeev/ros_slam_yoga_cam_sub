@@ -17,6 +17,7 @@
 - есть пример стандартного YAML `config/camera_calibration.sample.yaml`;
 - добавлен скрипт `scripts/run_camera_calibration.ps1`, который готовит publisher, проверяет наличие `camera_calibration` и формирует точную команду запуска;
 - добавлен скрипт `scripts/import_camera_calibration.ps1`, который копирует YAML в пакет и проверяет его через `camera_calibration_inspector`;
+- добавлен узел `camera_slam_preflight` и сценарий `scripts/run_slam_preflight.ps1` для проверки фактического FPS и согласованности `Image`/`CameraInfo`;
 - добавлен launch `static_camera_tf.launch.py` и связка `camera_slam_ready.launch.py` для публикации стандартного optical TF;
 - `CameraInfo` публикуется синхронно с каждым кадром и имеет тот же `frame_id`, что и изображение.
 
@@ -76,7 +77,22 @@
 
 Если калибровка получена не в формате `camera_calibration`, можно либо привести её к стандартному YAML-формату, либо вручную заполнить `config/camera_calibration.template.yaml`.
 
-### 6. Запускать publisher с реальной калибровкой
+### 6. Прогнать preflight после импорта калибровки
+
+Перед подключением SLAM полезно сразу проверить поток:
+
+```powershell
+.\scripts\run_slam_preflight.ps1 calibration_file:=C:/dev/ros2_ws/src/yoga_cam_sub/config/camera_calibration.local.yaml
+```
+
+Preflight проверит:
+
+- приходят ли оба топика `/camera/image_raw` и `/camera/camera_info`;
+- совпадают ли `frame_id`, ширина и высота;
+- какой реальный FPS наблюдается;
+- не похож ли `CameraInfo` на шаблонную калибровку.
+
+### 7. Запускать publisher с реальной калибровкой
 
 ```cmd
 scripts\run_in_ros_env.cmd ros2 run yoga_cam_sub camera_publisher --ros-args -p calibration_file:=C:/dev/ros2_ws/src/yoga_cam_sub/config/camera_calibration.local.yaml
@@ -123,6 +139,8 @@ scripts\run_in_ros_env.cmd ros2 launch yoga_cam_sub static_camera_tf.launch.py
 - логирование джиттера между кадрами;
 - публикацию диагностического статуса.
 
+Часть этой диагностики уже покрывает `camera_slam_preflight`, который измеряет фактический FPS и разброс интервалов между кадрами.
+
 ### Выбор следующего SLAM-пакета
 
 Для следующего шага можно рассматривать:
@@ -135,6 +153,7 @@ scripts\run_in_ros_env.cmd ros2 launch yoga_cam_sub static_camera_tf.launch.py
 
 - подтверждено, что `camera_publisher` стабильно публикует реальные кадры;
 - подтверждено, что `/camera/camera_info` содержит реальные матрицы калибровки;
+- прогнан `camera_slam_preflight` и зафиксирован фактический FPS;
 - согласованы `frame_id` и базовые TF;
 - выбраны разрешение и FPS, которые ноутбук тянет без заметных пропусков;
 - зафиксирована рабочая ветка и конфигурация камеры.
