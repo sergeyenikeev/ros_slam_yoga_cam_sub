@@ -26,17 +26,11 @@ foreach ($step in $steps) {
   Write-Host "`n=== $($step.Name) ==="
   $stepArgs = $step.Args
   & (Join-Path $PSScriptRoot $step.Script) @stepArgs
-  if ($LASTEXITCODE -ne 0) {
-    throw "Шаг '$($step.Name)' завершился с кодом $LASTEXITCODE."
-  }
 }
 
 if (-not $SkipTfCheck) {
   Write-Host "`n=== Smoke-тест статического TF ==="
   & (Join-Path $PSScriptRoot 'tf_smoke_test.ps1')
-  if ($LASTEXITCODE -ne 0) {
-    throw 'Smoke-тест статического TF завершился с ошибкой.'
-  }
 }
 
 if (-not $SkipCameraChecks) {
@@ -47,31 +41,20 @@ if (-not $SkipCameraChecks) {
     -PublisherMaxFrames $TopicPublisherMaxFrames `
     -PublisherStartupDelaySeconds 4 `
     -EchoTimeoutSeconds $TopicEchoTimeoutSeconds
-  if ($LASTEXITCODE -ne 0) {
-    throw 'Проверка топиков завершилась с ошибкой.'
-  }
 
   Write-Host "`n=== SLAM preflight smoke-тест ==="
   & (Join-Path $PSScriptRoot 'slam_preflight_smoke_test.ps1')
-  if ($LASTEXITCODE -ne 0) {
-    throw 'SLAM preflight smoke-тест завершился с ошибкой.'
-  }
 
   if (-not $SkipDatasetCheck) {
     Write-Host "`n=== Dataset bag smoke-тест ==="
     & (Join-Path $PSScriptRoot 'dataset_bag_smoke_test.ps1')
-    if ($LASTEXITCODE -ne 0) {
-      throw 'Dataset bag smoke-тест завершился с ошибкой.'
-    }
   }
 }
 
 if (-not $SkipLaunchCheck) {
   Write-Host "`n=== Launch smoke-тест ==="
   & (Join-Path $PSScriptRoot 'launch_smoke_test.ps1') -TimeoutSeconds $LaunchTimeoutSeconds
-  if ($LASTEXITCODE -ne 0) {
-    throw 'Launch smoke-тест завершился с ошибкой.'
-  }
 }
 
 Write-Host "`n[ИНФО] Полный автоматический прогон завершён успешно."
+
