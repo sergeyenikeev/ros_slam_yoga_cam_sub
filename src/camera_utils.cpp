@@ -2,10 +2,12 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <filesystem>
 #include <iterator>
 #include <sstream>
 #include <stdexcept>
 
+#include <opencv2/core/persistence.hpp>
 #include <opencv2/imgproc.hpp>
 #include <opencv2/videoio.hpp>
 
@@ -35,6 +37,54 @@ void ensure_non_empty_frame(const cv::Mat & frame)
   if (frame.empty()) {
     throw std::invalid_argument("Невозможно сформировать сообщение из пустого кадра.");
   }
+}
+
+cv::FileNode require_node(const cv::FileStorage & storage, const std::string & key)
+{
+  const cv::FileNode node = storage[key];
+  if (node.empty()) {
+    throw std::invalid_argument("В YAML-файле отсутствует обязательное поле '" + key + "'.");
+  }
+
+  return node;
+}
+
+int read_positive_int(const cv::FileStorage & storage, const std::string & key)
+{
+  const cv::FileNode node = require_node(storage, key);
+  const int value = static_cast<int>(node);
+  if (value <= 0) {
+    throw std::invalid_argument("Поле '" + key + "' должно быть положительным.");
+  }
+
+  return value;
+}
+
+std::vector<double> read_sequence(const cv::FileStorage & storage, const std::string & key)
+{
+  const cv::FileNode root = require_node(storage, key);
+  cv::FileNode data = root;
+
+  // `camera_calibration` пишет матрицы как map с `rows/cols/data`, но для тестов
+  // и вспомогательных сценариев поддерживаем и прямой массив значений.
+  if (root.isMap()) {
+    data = root["data"];
+    if (data.empty()) {
+      throw std::invalid_argument("Поле '" + key + "' должно содержать вложенный массив data.");
+    }
+  }
+
+  if (!data.isSeq()) {
+    throw std::invalid_argument("Поле '" + key + "' должно быть массивом чисел.");
+  }
+
+  std::vector<double> values;
+  values.reserve(data.size());
+  for (const auto & value : data) {
+    values.push_back(static_cast<double>(value.real()));
+  }
+
+  return values;
 }
 
 }  // namespace
@@ -78,6 +128,9 @@ std::vector<std::string> validate_calibration(const CameraCalibration & calibrat
   if (calibration.distortion_model.empty()) {
     errors.emplace_back("Модель дисторсии не должна быть пустой.");
   }
+  if (calibration.calibration_image_size.width <= 0 || calibration.calibration_image_size.height <= 0) {
+    errors.emplace_back("Размер калибровки должен быть положительным.");
+  }
   if (calibration.d.empty()) {
     errors.emplace_back("Массив коэффициентов дисторсии не должен быть пустым.");
   }
@@ -107,6 +160,7 @@ CameraCalibration make_default_calibration(const cv::Size & image_size)
 
   // До реальной калибровки публикуем согласованный шаблон, зависящий от размера кадра.
   CameraCalibration calibration;
+  calibration.calibration_image_size = image_size;
   calibration.k = {{fx, 0.0, cx, 0.0, fy, cy, 0.0, 0.0, 1.0}};
   calibration.r = {{1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0}};
   calibration.p = {{fx, 0.0, cx, 0.0, 0.0, fy, cy, 0.0, 0.0, 0.0, 1.0, 0.0}};
@@ -150,6 +204,96 @@ CameraCalibration merge_calibration_overrides(
   }
 
   return calibration;
+}
+
+CameraCalibration load_camera_calibration_file(const std::string & file_path)
+{
+  if (file_path.empty()) {
+    throw std::invalid_argument("Путь к calibration_file не должен быть пустым.");
+  }
+
+  const std::filesystem::path calibration_path(file_path);
+  if (!std::filesystem::exists(calibration_path)) {
+    throw std::invalid_argument("Файл калибровки не найден: " + calibration_path.string());
+  }
+
+  cv::FileStorage storage(calibration_path.string(), cv::FileStorage::READ);
+  if (!storage.isOpened()) {
+    throw std::invalid_argument("Не удалось открыть YAML-файл калибровки: " + calibration_path.string());
+  }
+
+  CameraCalibration calibration;
+  calibration.calibration_image_size = cv::Size(
+    read_positive_int(storage, "image_width"),
+    read_positive_int(storage, "image_height"));
+
+  const cv::FileNode camera_name_node = storage["camera_name"];
+  calibration.camera_name = camera_name_node.empty()
+    ? calibration_path.stem().string()
+    : static_cast<std::string>(camera_name_node);
+  calibration.distortion_model = static_cast<std::string>(require_node(storage, "distortion_model"));
+  calibration.d = read_sequence(storage, "distortion_coefficients");
+  calibration.k = to_array<9>(read_sequence(storage, "camera_matrix"), "camera_matrix");
+  calibration.r = to_array<9>(read_sequence(storage, "rectification_matrix"), "rectification_matrix");
+  calibration.p = to_array<12>(read_sequence(storage, "projection_matrix"), "projection_matrix");
+
+  const auto errors = validate_calibration(calibration);
+  if (!errors.empty()) {
+    std::ostringstream stream;
+    stream << "Некорректный YAML-файл калибровки:";
+    for (const auto & error : errors) {
+      stream << ' ' << error;
+    }
+    throw std::invalid_argument(stream.str());
+  }
+
+  return calibration;
+}
+
+CameraCalibration scale_camera_calibration(
+  const CameraCalibration & calibration,
+  const cv::Size & image_size)
+{
+  if (image_size.width <= 0 || image_size.height <= 0) {
+    throw std::invalid_argument("Размер изображения для масштабирования калибровки должен быть положительным.");
+  }
+
+  const auto errors = validate_calibration(calibration);
+  if (!errors.empty()) {
+    std::ostringstream stream;
+    stream << "Невозможно масштабировать некорректную калибровку:";
+    for (const auto & error : errors) {
+      stream << ' ' << error;
+    }
+    throw std::invalid_argument(stream.str());
+  }
+
+  if (calibration.calibration_image_size == image_size) {
+    return calibration;
+  }
+
+  const double scale_x =
+    static_cast<double>(image_size.width) / static_cast<double>(calibration.calibration_image_size.width);
+  const double scale_y =
+    static_cast<double>(image_size.height) / static_cast<double>(calibration.calibration_image_size.height);
+
+  CameraCalibration scaled = calibration;
+  scaled.calibration_image_size = image_size;
+
+  // Масштабируем только те элементы K и P, которые выражены в пикселях.
+  scaled.k[0] *= scale_x;
+  scaled.k[2] *= scale_x;
+  scaled.k[4] *= scale_y;
+  scaled.k[5] *= scale_y;
+
+  scaled.p[0] *= scale_x;
+  scaled.p[2] *= scale_x;
+  scaled.p[3] *= scale_x;
+  scaled.p[5] *= scale_y;
+  scaled.p[6] *= scale_y;
+  scaled.p[7] *= scale_y;
+
+  return scaled;
 }
 
 cv::Mat prepare_frame_for_publish(const cv::Mat & frame)

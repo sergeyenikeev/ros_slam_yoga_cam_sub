@@ -104,6 +104,24 @@ scripts\run_in_ros_env.cmd ros2 topic echo --once /tf_static
 
 ## 10. Если камера не открывается
 
+## 10. Проверка реальной калибровки
+
+Если у вас уже есть `ost.yaml` или другой стандартный YAML от `camera_calibration`, импортируйте его:
+
+```powershell
+.\scripts\import_camera_calibration.ps1 -SourceFile C:\путь\к\ost.yaml
+```
+
+После этого можно запустить publisher уже с реальной калибровкой:
+
+```cmd
+scripts\run_in_ros_env.cmd ros2 run yoga_cam_sub camera_publisher --ros-args -p calibration_file:=C:/dev/ros2_ws/src/yoga_cam_sub/config/camera_calibration.local.yaml
+```
+
+В логах должны появиться сообщения `Загружен calibration_file` и `Подготовлен CameraInfo ... Значения калибровки загружены из calibration_file`.
+
+## 11. Если камера не открывается
+
 Попробуйте fallback на `CAP_ANY`:
 
 ```cmd

@@ -86,6 +86,8 @@ if (-not (Test-CameraCalibrationTool)) {
     Write-Warning $message
     Write-Host '[ИНФО] Команда для запуска после установки инструмента:'
     Write-Host ('scripts\run_in_ros_env.cmd ' + ($calibrationCommand -join ' '))
+    Write-Host '[ИНФО] После сохранения YAML удобно импортировать его так:'
+    Write-Host '.\scripts\import_camera_calibration.ps1 -SourceFile C:\путь\к\ost.yaml'
     exit 0
   }
 
@@ -96,6 +98,7 @@ if ($CheckOnly) {
   Write-Host '[ИНФО] Инструмент camera_calibration найден.'
   Write-Host '[ИНФО] Команда запуска:'
   Write-Host ('scripts\run_in_ros_env.cmd ' + ($calibrationCommand -join ' '))
+  Write-Host '[ИНФО] После завершения калибровки импортируйте YAML через scripts\import_camera_calibration.ps1.'
   exit 0
 }
 
@@ -131,6 +134,9 @@ try {
 
   Write-Host '[ИНФО] Запускаем camera_calibration.'
   & $envScript @calibrationCommand
+  if ($LASTEXITCODE -eq 0) {
+    Write-Host '[ИНФО] Если калибровка сохранена в YAML, импортируйте её через scripts\import_camera_calibration.ps1.'
+  }
   exit $LASTEXITCODE
 }
 finally {

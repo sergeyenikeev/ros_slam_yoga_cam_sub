@@ -1,4 +1,8 @@
-﻿#include <stdexcept>
+﻿#include <chrono>
+#include <filesystem>
+#include <fstream>
+#include <stdexcept>
+#include <string>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -11,6 +15,62 @@
 
 namespace
 {
+
+class TemporaryCalibrationFile
+{
+public:
+  explicit TemporaryCalibrationFile(const std::string & contents)
+  {
+    const auto unique_id = std::to_string(
+      std::chrono::steady_clock::now().time_since_epoch().count());
+    path_ = std::filesystem::temp_directory_path() /
+      ("yoga_cam_sub_calibration_" + unique_id + ".yaml");
+
+    std::ofstream stream(path_);
+    stream << contents;
+  }
+
+  ~TemporaryCalibrationFile()
+  {
+    std::error_code error;
+    std::filesystem::remove(path_, error);
+  }
+
+  const std::filesystem::path & path() const
+  {
+    return path_;
+  }
+
+private:
+  std::filesystem::path path_;
+};
+
+std::string make_sample_calibration_yaml()
+{
+  return R"(%YAML:1.0
+---
+image_width: 640
+image_height: 360
+camera_name: yoga_test_camera
+camera_matrix:
+  rows: 3
+  cols: 3
+  data: [ 640.0, 0.0, 319.5, 0.0, 360.0, 179.5, 0.0, 0.0, 1.0 ]
+distortion_model: plumb_bob
+distortion_coefficients:
+  rows: 1
+  cols: 5
+  data: [ 0.1, 0.2, 0.3, 0.4, 0.5 ]
+rectification_matrix:
+  rows: 3
+  cols: 3
+  data: [ 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0 ]
+projection_matrix:
+  rows: 3
+  cols: 4
+  data: [ 640.0, 0.0, 319.5, 0.0, 0.0, 360.0, 179.5, 0.0, 0.0, 0.0, 1.0, 0.0 ]
+)";
+}
 
 TEST(CameraParameters, RejectsInvalidValues)
 {
@@ -119,6 +179,9 @@ TEST(CameraCalibration, CreatesDefaultCalibrationFromImageSize)
 {
   const auto calibration = yoga_cam_sub::make_default_calibration(cv::Size(640, 360));
 
+  EXPECT_EQ(calibration.camera_name, "camera");
+  EXPECT_EQ(calibration.calibration_image_size.width, 640);
+  EXPECT_EQ(calibration.calibration_image_size.height, 360);
   EXPECT_EQ(calibration.distortion_model, "plumb_bob");
   EXPECT_EQ(calibration.d.size(), 5U);
   EXPECT_DOUBLE_EQ(calibration.k[0], 640.0);
@@ -177,6 +240,68 @@ TEST(CameraCalibration, BuildsCameraInfoMessage)
   EXPECT_EQ(message.d.size(), 4U);
   EXPECT_DOUBLE_EQ(message.k[2], 2.0);
   EXPECT_DOUBLE_EQ(message.p[6], 4.0);
+}
+
+TEST(CameraCalibration, LoadsCalibrationFile)
+{
+  const TemporaryCalibrationFile calibration_file(make_sample_calibration_yaml());
+  const auto calibration = yoga_cam_sub::load_camera_calibration_file(calibration_file.path().string());
+
+  EXPECT_EQ(calibration.camera_name, "yoga_test_camera");
+  EXPECT_EQ(calibration.calibration_image_size.width, 640);
+  EXPECT_EQ(calibration.calibration_image_size.height, 360);
+  EXPECT_EQ(calibration.distortion_model, "plumb_bob");
+  EXPECT_EQ(calibration.d.size(), 5U);
+  EXPECT_DOUBLE_EQ(calibration.k[0], 640.0);
+  EXPECT_DOUBLE_EQ(calibration.k[4], 360.0);
+}
+
+TEST(CameraCalibration, RejectsMissingCalibrationFile)
+{
+  EXPECT_THROW(
+    yoga_cam_sub::load_camera_calibration_file(
+      (std::filesystem::temp_directory_path() / "absent_yoga_cam_sub_calibration.yaml").string()),
+    std::invalid_argument);
+}
+
+TEST(CameraCalibration, RejectsCalibrationFileWithoutRequiredField)
+{
+  const TemporaryCalibrationFile calibration_file(R"(%YAML:1.0
+---
+image_width: 640
+image_height: 360
+camera_name: broken_camera
+distortion_model: plumb_bob
+)"
+  );
+
+  EXPECT_THROW(
+    yoga_cam_sub::load_camera_calibration_file(calibration_file.path().string()),
+    std::invalid_argument);
+}
+
+TEST(CameraCalibration, ScalesCalibrationToNewResolution)
+{
+  const TemporaryCalibrationFile calibration_file(make_sample_calibration_yaml());
+  const auto source = yoga_cam_sub::load_camera_calibration_file(calibration_file.path().string());
+  const auto scaled = yoga_cam_sub::scale_camera_calibration(source, cv::Size(1280, 720));
+
+  EXPECT_EQ(scaled.calibration_image_size.width, 1280);
+  EXPECT_EQ(scaled.calibration_image_size.height, 720);
+  EXPECT_DOUBLE_EQ(scaled.k[0], 1280.0);
+  EXPECT_DOUBLE_EQ(scaled.k[4], 720.0);
+  EXPECT_DOUBLE_EQ(scaled.k[2], 639.0);
+  EXPECT_DOUBLE_EQ(scaled.k[5], 359.0);
+  EXPECT_DOUBLE_EQ(scaled.p[0], 1280.0);
+  EXPECT_DOUBLE_EQ(scaled.p[5], 720.0);
+}
+
+TEST(CameraCalibration, RejectsScalingForInvalidTargetSize)
+{
+  const auto calibration = yoga_cam_sub::make_default_calibration(cv::Size(640, 360));
+  EXPECT_THROW(
+    yoga_cam_sub::scale_camera_calibration(calibration, cv::Size(0, 720)),
+    std::invalid_argument);
 }
 
 TEST(CameraCalibration, DescribesKnownBackend)

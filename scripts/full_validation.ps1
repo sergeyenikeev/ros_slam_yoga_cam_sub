@@ -17,6 +17,7 @@ $steps = @(
   @{ Name = 'Диагностика окружения'; Script = 'diagnose_environment.ps1'; Args = @() },
   @{ Name = 'Сборка workspace'; Script = 'build_workspace.ps1'; Args = @() },
   @{ Name = 'Пакет тестов'; Script = 'run_tests.ps1'; Args = @() },
+  @{ Name = 'Smoke-тест YAML калибровки'; Script = 'calibration_file_smoke_test.ps1'; Args = @() },
   @{ Name = 'Smoke-тест image_counter'; Script = 'subscriber_smoke_test.ps1'; Args = @() }
 )
 

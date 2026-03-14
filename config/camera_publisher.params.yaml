@@ -9,10 +9,12 @@
     camera_info_topic: /camera/camera_info
     use_msmf: true
     max_frames: 0
+    calibration_file: ''
 
     # Калибровочные параметры намеренно не заданы в базовом профиле.
     # Узел сам построит временный шаблон CameraInfo по реальному размеру кадра.
-    # Для реальной калибровки используйте config/camera_calibration.template.yaml.
+    # Для реальной калибровки можно либо заполнить template-файл ниже вручную,
+    # либо передать стандартный YAML из camera_calibration через calibration_file.
 
 image_counter:
   ros__parameters:

@@ -12,8 +12,11 @@
 ## Что уже подготовлено
 
 - параметры калибровки (`distortion_model`, `distortion_coefficients`, `camera_matrix`, `rectification_matrix`, `projection_matrix`) уже встроены в `camera_publisher`;
+- `camera_publisher` умеет принимать стандартный YAML от `camera_calibration` через параметр `calibration_file`;
 - есть шаблон `config/camera_calibration.template.yaml`;
+- есть пример стандартного YAML `config/camera_calibration.sample.yaml`;
 - добавлен скрипт `scripts/run_camera_calibration.ps1`, который готовит publisher, проверяет наличие `camera_calibration` и формирует точную команду запуска;
+- добавлен скрипт `scripts/import_camera_calibration.ps1`, который копирует YAML в пакет и проверяет его через `camera_calibration_inspector`;
 - добавлен launch `static_camera_tf.launch.py` и связка `camera_slam_ready.launch.py` для публикации стандартного optical TF;
 - `CameraInfo` публикуется синхронно с каждым кадром и имеет тот же `frame_id`, что и изображение.
 
@@ -57,21 +60,35 @@
 1. использовать Linux/WSL/другую ROS 2 машину с установленным `camera_calibration`, публикуя в неё поток камеры;
 2. выполнить калибровку внешним инструментом OpenCV и перенести матрицы в YAML вручную.
 
-### 5. Сохранить результаты
+### 5. Импортировать результаты в пакет
 
-После успешной калибровки перенесите значения в отдельный YAML-файл, например `config/camera_calibration.local.yaml`, по образцу `config/camera_calibration.template.yaml`.
+Если `camera_calibration` сохранил `ost.yaml` или другой стандартный YAML, импортируйте его так:
+
+```powershell
+.\scripts\import_camera_calibration.ps1 -SourceFile C:\путь\к\ost.yaml
+```
+
+Скрипт:
+
+- копирует YAML в `config/camera_calibration.local.yaml`;
+- валидирует его через `camera_calibration_inspector`;
+- показывает готовые команды запуска publisher и SLAM-ready pipeline.
+
+Если калибровка получена не в формате `camera_calibration`, можно либо привести её к стандартному YAML-формату, либо вручную заполнить `config/camera_calibration.template.yaml`.
 
 ### 6. Запускать publisher с реальной калибровкой
 
 ```cmd
-scripts\run_in_ros_env.cmd ros2 run yoga_cam_sub camera_publisher --ros-args --params-file C:\dev\ros2_ws\src\yoga_cam_sub\config\camera_calibration.local.yaml
+scripts\run_in_ros_env.cmd ros2 run yoga_cam_sub camera_publisher --ros-args -p calibration_file:=C:/dev/ros2_ws/src/yoga_cam_sub/config/camera_calibration.local.yaml
 ```
 
 Либо через launch:
 
 ```cmd
-scripts\run_in_ros_env.cmd ros2 launch yoga_cam_sub camera_publisher.launch.py params_file:=C:\dev\ros2_ws\src\yoga_cam_sub\config\camera_calibration.local.yaml
+scripts\run_in_ros_env.cmd ros2 launch yoga_cam_sub camera_publisher.launch.py calibration_file:=C:/dev/ros2_ws/src/yoga_cam_sub/config/camera_calibration.local.yaml
 ```
+
+Если runtime-разрешение отличается от исходного размера калибровки, `camera_publisher` автоматически масштабирует матрицы и пишет это в лог. При изменении aspect ratio узел дополнительно предупреждает, что для SLAM лучше перекалибровать камеру в целевом разрешении.
 
 ## Что ещё нужно для visual SLAM
 

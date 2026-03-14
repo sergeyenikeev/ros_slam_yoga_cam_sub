@@ -21,6 +21,7 @@ def generate_launch_description():
         DeclareLaunchArgument('frame_id', default_value='camera_optical_frame'),
         DeclareLaunchArgument('use_msmf', default_value='true'),
         DeclareLaunchArgument('max_frames', default_value='0'),
+        DeclareLaunchArgument('calibration_file', default_value=''),
         Node(
             package='yoga_cam_sub',
             executable='camera_publisher',
@@ -37,6 +38,8 @@ def generate_launch_description():
                     'frame_id': LaunchConfiguration('frame_id'),
                     'use_msmf': LaunchConfiguration('use_msmf'),
                     'max_frames': LaunchConfiguration('max_frames'),
+                    # Внешний YAML от camera_calibration удобнее передавать через launch-аргумент.
+                    'calibration_file': LaunchConfiguration('calibration_file'),
                 },
             ],
         ),

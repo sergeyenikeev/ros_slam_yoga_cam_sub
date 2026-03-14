@@ -32,6 +32,10 @@ struct CameraParameters
 // Калибровка, уже подготовленная к публикации в CameraInfo.
 struct CameraCalibration
 {
+  // Имя камеры приходит из YAML `camera_calibration` и полезно для диагностики.
+  std::string camera_name{"camera"};
+  // Размер, в котором исходно была получена калибровка.
+  cv::Size calibration_image_size{};
   std::string distortion_model{"plumb_bob"};
   std::vector<double> d{0.0, 0.0, 0.0, 0.0, 0.0};
   std::array<double, 9> k{{1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0}};
@@ -56,6 +60,14 @@ CameraCalibration merge_calibration_overrides(
   const std::vector<double> & camera_matrix,
   const std::vector<double> & rectification_matrix,
   const std::vector<double> & projection_matrix);
+
+// Загружает стандартный YAML-файл, сформированный `camera_calibration`.
+CameraCalibration load_camera_calibration_file(const std::string & file_path);
+
+// Масштабирует калибровку на новое разрешение, если поток идёт не в исходном размере.
+CameraCalibration scale_camera_calibration(
+  const CameraCalibration & calibration,
+  const cv::Size & image_size);
 
 // Приводит кадр OpenCV к формату CV_8UC3 для публикации как bgr8.
 cv::Mat prepare_frame_for_publish(const cv::Mat & frame);

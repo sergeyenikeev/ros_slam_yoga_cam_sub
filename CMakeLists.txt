@@ -43,8 +43,12 @@ add_executable(camera_publisher src/camera_publisher.cpp)
 target_link_libraries(camera_publisher camera_utils)
 ament_target_dependencies(camera_publisher rclcpp sensor_msgs)
 
+add_executable(camera_calibration_inspector src/camera_calibration_inspector.cpp)
+target_link_libraries(camera_calibration_inspector camera_utils)
+ament_target_dependencies(camera_calibration_inspector rclcpp sensor_msgs)
+
 install(
-  TARGETS camera_utils image_counter camera_publisher
+  TARGETS camera_utils image_counter camera_publisher camera_calibration_inspector
   EXPORT export_${PROJECT_NAME}
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib

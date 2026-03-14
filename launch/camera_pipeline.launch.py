@@ -22,6 +22,7 @@ def generate_launch_description():
         DeclareLaunchArgument('frame_id', default_value='camera_optical_frame'),
         DeclareLaunchArgument('image_topic', default_value='/camera/image_raw'),
         DeclareLaunchArgument('camera_info_topic', default_value='/camera/camera_info'),
+        DeclareLaunchArgument('calibration_file', default_value=''),
         DeclareLaunchArgument('publisher_max_frames', default_value='0'),
         DeclareLaunchArgument('counter_max_frames', default_value='0'),
         Node(
@@ -40,6 +41,7 @@ def generate_launch_description():
                     'frame_id': LaunchConfiguration('frame_id'),
                     'image_topic': LaunchConfiguration('image_topic'),
                     'camera_info_topic': LaunchConfiguration('camera_info_topic'),
+                    'calibration_file': LaunchConfiguration('calibration_file'),
                     'max_frames': LaunchConfiguration('publisher_max_frames'),
                 },
             ],

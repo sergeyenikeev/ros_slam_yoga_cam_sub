@@ -92,6 +92,12 @@ colcon build --merge-install --packages-select yoga_cam_sub --cmake-clean-cache 
 .\scripts\full_validation.ps1
 ```
 
+Отдельная проверка runtime-обработки YAML калибровки:
+
+```powershell
+.\scripts\calibration_file_smoke_test.ps1
+```
+
 Отдельная проверка статического TF:
 
 ```powershell
@@ -128,6 +134,16 @@ C:\pixi_ws\.pixi\envs\default\Library\cmake\OpenCVConfig.cmake
 ### Пакет не виден через `ros2 pkg list`
 
 После успешной сборки команды нужно запускать из окружения, где подключён overlay `C:\dev\ros2_ws\install\local_setup.bat`. Скрипт `run_in_ros_env.cmd` делает это автоматически, если каталог `install` уже существует.
+
+### Нужно быстро проверить YAML калибровки без запуска камеры
+
+Используйте:
+
+```powershell
+.\scripts\import_camera_calibration.ps1 -SourceFile C:\путь\к\ost.yaml
+```
+
+Скрипт валидирует файл через `camera_calibration_inspector` и подсказывает готовую команду запуска с `calibration_file`.
 
 ### В консоли виден warning про RTI Connext DDS
 

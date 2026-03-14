@@ -1,3 +1,4 @@
 ﻿artifacts/
 __pycache__/
 *.pyc
+config/camera_calibration.local.yaml

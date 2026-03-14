@@ -1,4 +1,5 @@
 ﻿#include <chrono>
+#include <cmath>
 #include <cstdint>
 #include <exception>
 #include <functional>
@@ -26,6 +27,7 @@ public:
   {
     load_parameters();
     validate_parameters();
+    preload_calibration_source();
 
     const auto qos = rclcpp::SensorDataQoS();
     image_pub_ = this->create_publisher<sensor_msgs::msg::Image>(camera_parameters_.image_topic, qos);
@@ -76,6 +78,7 @@ private:
       this->declare_parameter<std::string>("camera_info_topic", "/camera/camera_info");
     camera_parameters_.use_msmf = this->declare_parameter<bool>("use_msmf", true);
     camera_parameters_.max_frames = static_cast<int>(this->declare_parameter<std::int64_t>("max_frames", 0));
+    calibration_file_ = this->declare_parameter<std::string>("calibration_file", "");
 
     distortion_model_ = this->declare_parameter<std::string>("distortion_model", "plumb_bob");
     distortion_coefficients_ =
@@ -95,6 +98,12 @@ private:
       camera_matrix_.size(),
       rectification_matrix_.size(),
       projection_matrix_.size());
+    if (!calibration_file_.empty()) {
+      RCLCPP_INFO(
+        this->get_logger(),
+        "Задан внешний файл калибровки calibration_file=%s.",
+        calibration_file_.c_str());
+    }
   }
 
   void validate_parameters()
@@ -111,6 +120,41 @@ private:
     }
 
     throw std::invalid_argument(stream.str());
+  }
+
+  bool has_inline_calibration_settings() const
+  {
+    return distortion_model_ != "plumb_bob" ||
+      !distortion_coefficients_.empty() ||
+      !camera_matrix_.empty() ||
+      !rectification_matrix_.empty() ||
+      !projection_matrix_.empty();
+  }
+
+  void preload_calibration_source()
+  {
+    if (calibration_file_.empty()) {
+      return;
+    }
+
+    // Загружаем файл один раз при старте, чтобы любые ошибки увидеть до открытия камеры.
+    file_calibration_ = yoga_cam_sub::load_camera_calibration_file(calibration_file_);
+    has_calibration_file_ = true;
+
+    if (has_inline_calibration_settings()) {
+      RCLCPP_WARN(
+        this->get_logger(),
+        "Параметр calibration_file задан, поэтому inline-параметры калибровки будут проигнорированы.");
+    }
+
+    RCLCPP_INFO(
+      this->get_logger(),
+      "Загружен calibration_file=%s camera_name=%s source_width=%d source_height=%d distortion_model=%s.",
+      calibration_file_.c_str(),
+      file_calibration_.camera_name.c_str(),
+      file_calibration_.calibration_image_size.width,
+      file_calibration_.calibration_image_size.height,
+      file_calibration_.distortion_model.c_str());
   }
 
   void open_camera()
@@ -180,14 +224,45 @@ private:
       return;
     }
 
-    // CameraInfo пересобирается только при изменении фактического размера кадра.
-    calibration_ = yoga_cam_sub::merge_calibration_overrides(
-      image_size,
-      distortion_model_,
-      distortion_coefficients_,
-      camera_matrix_,
-      rectification_matrix_,
-      projection_matrix_);
+    if (has_calibration_file_) {
+      // Реальная калибровка сохраняется в исходном размере и при необходимости
+      // масштабируется на runtime-разрешение потока без ручного пересчёта матриц.
+      calibration_ = yoga_cam_sub::scale_camera_calibration(file_calibration_, image_size);
+
+      const double scale_x = static_cast<double>(image_size.width) /
+        static_cast<double>(file_calibration_.calibration_image_size.width);
+      const double scale_y = static_cast<double>(image_size.height) /
+        static_cast<double>(file_calibration_.calibration_image_size.height);
+
+      if (std::abs(scale_x - scale_y) > 1e-6) {
+        RCLCPP_WARN(
+          this->get_logger(),
+          "Размер потока %dx%d отличается по aspect ratio от калибровки %dx%d. Калибровка будет масштабирована неравномерно; для SLAM лучше перекалибровать камеру.",
+          image_size.width,
+          image_size.height,
+          file_calibration_.calibration_image_size.width,
+          file_calibration_.calibration_image_size.height);
+      } else if (file_calibration_.calibration_image_size != image_size) {
+        RCLCPP_INFO(
+          this->get_logger(),
+          "Калибровка из файла будет масштабирована с %dx%d на %dx%d (scale_x=%.3f scale_y=%.3f).",
+          file_calibration_.calibration_image_size.width,
+          file_calibration_.calibration_image_size.height,
+          image_size.width,
+          image_size.height,
+          scale_x,
+          scale_y);
+      }
+    } else {
+      // CameraInfo пересобирается только при изменении фактического размера кадра.
+      calibration_ = yoga_cam_sub::merge_calibration_overrides(
+        image_size,
+        distortion_model_,
+        distortion_coefficients_,
+        camera_matrix_,
+        rectification_matrix_,
+        projection_matrix_);
+    }
     current_frame_size_ = image_size;
 
     RCLCPP_INFO(
@@ -195,7 +270,8 @@ private:
       "Подготовлен CameraInfo для размера %dx%d. Значения калибровки %s.",
       image_size.width,
       image_size.height,
-      camera_matrix_.empty() ? "взяты из шаблона по умолчанию" : "загружены из параметров");
+      has_calibration_file_ ? "загружены из calibration_file" :
+      (camera_matrix_.empty() ? "взяты из шаблона по умолчанию" : "загружены из параметров"));
   }
 
   void publish_frame()
@@ -278,9 +354,12 @@ private:
   std::vector<double> camera_matrix_;
   std::vector<double> rectification_matrix_;
   std::vector<double> projection_matrix_;
+  std::string calibration_file_;
   std::size_t published_frames_;
   std::size_t failed_reads_;
   int active_backend_;
+  bool has_calibration_file_{false};
+  yoga_cam_sub::CameraCalibration file_calibration_;
 
   cv::VideoCapture cap_;
   rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr image_pub_;

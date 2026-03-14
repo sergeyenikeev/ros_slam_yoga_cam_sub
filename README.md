@@ -10,6 +10,7 @@
 - добавлены unit-тесты для валидации параметров, преобразования кадров, генерации `Image` и `CameraInfo`;
 - добавлены launch-файлы, smoke-тесты, сценарий полного прогона и скрипты сборки/диагностики;
 - добавлен сценарий подготовки калибровки `scripts/run_camera_calibration.ps1` с проверкой наличия инструмента `camera_calibration`;
+- добавлен импорт стандартного YAML из `camera_calibration` через `calibration_file` и отдельный валидатор `camera_calibration_inspector`;
 - подготовлены шаблоны параметров и документация для следующего этапа интеграции visual SLAM.
 
 ## Структура пакета
@@ -19,12 +20,14 @@
 - `src/camera_utils.cpp` и `include/yoga_cam_sub/camera_utils.hpp` — тестируемая логика преобразования кадров и подготовки `CameraInfo`;
 - `config/camera_publisher.params.yaml` — базовые параметры узлов;
 - `config/camera_calibration.template.yaml` — шаблон для реальной калибровки;
+- `config/camera_calibration.sample.yaml` — пример стандартного YAML-файла от `camera_calibration`;
 - `launch/camera_publisher.launch.py` — запуск только publisher;
 - `launch/camera_pipeline.launch.py` — совместный запуск publisher и subscriber;
 - `launch/static_camera_tf.launch.py` — публикация статического TF между `camera_link` и `camera_optical_frame`;
 - `launch/camera_slam_ready.launch.py` — связка publisher + статический TF для следующего этапа SLAM;
 - `scripts/full_validation.ps1` — единый автоматический прогон всех доступных проверок;
 - `scripts/run_camera_calibration.ps1` — подготовка и запуск калибровки камеры;
+- `scripts/import_camera_calibration.ps1` — импорт и валидация YAML-калибровки;
 - `scripts/tf_smoke_test.ps1` — автоматическая проверка публикации статического TF;
 - `scripts/run_slam_ready_pipeline.ps1` — запуск SLAM-ready конфигурации камеры;
 - `docs/` — подробная документация по сборке, ручной проверке и подготовке к SLAM.
@@ -81,7 +84,17 @@ scripts\build_workspace.cmd
 
 Если инструмент `camera_calibration` установлен, можно запускать его тем же скриптом без `-CheckOnly`.
 
-### 7. Запуск SLAM-ready конфигурации
+### 7. Импорт готового YAML калибровки
+
+Когда `camera_calibration` сохранит `ost.yaml` или другой стандартный YAML, импортируйте его в пакет:
+
+```powershell
+.\scripts\import_camera_calibration.ps1 -SourceFile C:\путь\к\ost.yaml
+```
+
+Скрипт скопирует файл в `config/camera_calibration.local.yaml`, прогонит валидацию через `camera_calibration_inspector` и выведет готовые команды запуска.
+
+### 8. Запуск SLAM-ready конфигурации
 
 ```powershell
 .\scripts\run_slam_ready_pipeline.ps1
@@ -99,9 +112,10 @@ scripts\build_workspace.cmd
 - `camera_info_topic` — топик для `CameraInfo`, по умолчанию `/camera/camera_info`;
 - `use_msmf` — сначала пробовать `CAP_MSMF`, затем fallback на `CAP_ANY`;
 - `max_frames` — число кадров до автоостановки, `0` означает бесконечный режим;
+- `calibration_file` — путь к стандартному YAML-файлу от `camera_calibration`;
 - `distortion_model`, `distortion_coefficients`, `camera_matrix`, `rectification_matrix`, `projection_matrix` — параметры будущей калибровки.
 
-Если массивы калибровки пустые, узел публикует шаблонный `CameraInfo` с безопасными стартовыми значениями. Для SLAM их нужно заменить реальной калибровкой.
+Если задан `calibration_file`, он имеет приоритет над inline-параметрами калибровки. Если ни файл, ни массивы не заданы, узел публикует шаблонный `CameraInfo` с безопасными стартовыми значениями. Для SLAM их нужно заменить реальной калибровкой.
 
 ## Smoke-тест без физической камеры
 
@@ -142,9 +156,10 @@ scripts\build_workspace.cmd
 ## Следующие шаги
 
 1. Выполнить реальную калибровку камеры и сохранить матрицы в отдельный YAML-файл.
-2. Подстроить параметры статического TF под реальное положение камеры на ноутбуке или на роботе.
-3. Подключить следующий monocular SLAM-модуль к `/camera/image_raw` и `/camera/camera_info`.
-4. При необходимости расширить пакет диагностикой джиттера, пропуска кадров и transport-вариантами.
+2. Импортировать YAML через `scripts/import_camera_calibration.ps1` и запустить pipeline уже с реальным `CameraInfo`.
+3. Подстроить параметры статического TF под реальное положение камеры на ноутбуке или на роботе.
+4. Подключить следующий monocular SLAM-модуль к `/camera/image_raw` и `/camera/camera_info`.
+5. При необходимости расширить пакет диагностикой джиттера, пропуска кадров и transport-вариантами.
 
 ## Дополнительная документация
 
