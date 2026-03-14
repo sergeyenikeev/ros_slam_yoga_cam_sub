@@ -83,6 +83,14 @@ sensor_msgs::msg::CameraInfo build_camera_info_message(
   const rclcpp::Time & stamp,
   const CameraCalibration & calibration);
 
+// Возвращает предпочтительный порядок backend OpenCV для первичного открытия камеры.
+std::vector<int> build_video_backend_priority(bool prefer_msmf);
+
+// Возвращает порядок backend-ов для восстановления после серии ошибок чтения.
+std::vector<int> build_recovery_backend_priority(
+  const std::vector<int> & preferred_backends,
+  int active_backend);
+
 // Возвращает понятное имя backend OpenCV для логов и диагностики.
 std::string describe_video_backend(int backend);
 

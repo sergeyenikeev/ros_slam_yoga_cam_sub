@@ -159,15 +159,11 @@ private:
 
   void open_camera()
   {
-    // Для Windows-ноутбуков сначала пробуем MSMF, затем универсальный fallback OpenCV.
-    std::vector<int> backends;
-    if (camera_parameters_.use_msmf) {
-      backends = {cv::CAP_MSMF, cv::CAP_ANY};
-    } else {
-      backends = {cv::CAP_ANY, cv::CAP_MSMF};
-    }
+    // Для Windows-ноутбуков используем один и тот же порядок backend-ов и при старте,
+    // и при runtime-восстановлении после серии ошибок чтения.
+    preferred_backends_ = yoga_cam_sub::build_video_backend_priority(camera_parameters_.use_msmf);
 
-    for (const int backend : backends) {
+    for (const int backend : preferred_backends_) {
       if (try_open_camera(backend)) {
         active_backend_ = backend;
         return;
@@ -216,6 +212,40 @@ private:
       actual_height,
       actual_fps);
     return true;
+  }
+
+  bool attempt_recover_after_failed_reads()
+  {
+    if (preferred_backends_.empty()) {
+      return false;
+    }
+
+    const auto recovery_backends =
+      yoga_cam_sub::build_recovery_backend_priority(preferred_backends_, active_backend_);
+
+    RCLCPP_WARN(
+      this->get_logger(),
+      "После %zu подряд ошибок чтения пробуем восстановить камеру. Текущий backend=%s.",
+      failed_reads_,
+      yoga_cam_sub::describe_video_backend(active_backend_).c_str());
+
+    for (const int backend : recovery_backends) {
+      if (try_open_camera(backend)) {
+        active_backend_ = backend;
+        failed_reads_ = 0;
+        RCLCPP_INFO(
+          this->get_logger(),
+          "Восстановление камеры успешно. Новый backend=%s.",
+          yoga_cam_sub::describe_video_backend(active_backend_).c_str());
+        return true;
+      }
+    }
+
+    RCLCPP_ERROR(
+      this->get_logger(),
+      "Не удалось восстановить чтение камеры после %zu подряд ошибок.",
+      failed_reads_);
+    return false;
   }
 
   void refresh_calibration_if_needed(const cv::Size & image_size)
@@ -285,6 +315,12 @@ private:
         3000,
         "Не удалось прочитать кадр с камеры. Количество последовательных ошибок: %zu.",
         failed_reads_);
+
+      // Если backend зависает после успешного открытия устройства, пробуем мягко
+      // переключиться на альтернативный backend и продолжить публикацию без перезапуска узла.
+      if (failed_reads_ % 30 == 0) {
+        (void)attempt_recover_after_failed_reads();
+      }
       return;
     }
 
@@ -358,6 +394,7 @@ private:
   std::size_t published_frames_;
   std::size_t failed_reads_;
   int active_backend_;
+  std::vector<int> preferred_backends_;
   bool has_calibration_file_{false};
   yoga_cam_sub::CameraCalibration file_calibration_;
 

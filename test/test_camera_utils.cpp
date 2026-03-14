@@ -309,4 +309,34 @@ TEST(CameraCalibration, DescribesKnownBackend)
   EXPECT_EQ(yoga_cam_sub::describe_video_backend(cv::CAP_MSMF), "CAP_MSMF");
 }
 
+TEST(CameraBackends, BuildsPreferredPriorityForMsmf)
+{
+  const auto backends = yoga_cam_sub::build_video_backend_priority(true);
+
+  ASSERT_EQ(backends.size(), 2U);
+  EXPECT_EQ(backends[0], cv::CAP_MSMF);
+  EXPECT_EQ(backends[1], cv::CAP_ANY);
+}
+
+TEST(CameraBackends, BuildsRecoveryPriorityWithFallbackFirst)
+{
+  const auto backends = yoga_cam_sub::build_recovery_backend_priority(
+    std::vector<int>{cv::CAP_MSMF, cv::CAP_ANY},
+    cv::CAP_MSMF);
+
+  ASSERT_EQ(backends.size(), 2U);
+  EXPECT_EQ(backends[0], cv::CAP_ANY);
+  EXPECT_EQ(backends[1], cv::CAP_MSMF);
+}
+
+TEST(CameraBackends, DeduplicatesRecoveryPriority)
+{
+  const auto backends = yoga_cam_sub::build_recovery_backend_priority(
+    std::vector<int>{cv::CAP_ANY, cv::CAP_ANY},
+    cv::CAP_ANY);
+
+  ASSERT_EQ(backends.size(), 1U);
+  EXPECT_EQ(backends[0], cv::CAP_ANY);
+}
+
 }  // namespace

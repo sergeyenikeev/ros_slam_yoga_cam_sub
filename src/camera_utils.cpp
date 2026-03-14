@@ -392,6 +392,42 @@ sensor_msgs::msg::CameraInfo build_camera_info_message(
   return message;
 }
 
+std::vector<int> build_video_backend_priority(bool prefer_msmf)
+{
+  if (prefer_msmf) {
+    return {cv::CAP_MSMF, cv::CAP_ANY};
+  }
+
+  return {cv::CAP_ANY, cv::CAP_MSMF};
+}
+
+std::vector<int> build_recovery_backend_priority(
+  const std::vector<int> & preferred_backends,
+  int active_backend)
+{
+  std::vector<int> recovery_backends;
+  recovery_backends.reserve(preferred_backends.size() + 1);
+
+  // Сначала пробуем альтернативные backend-ы, а уже потом повторно открываем текущий,
+  // чтобы быстрее выбраться из состояния, когда backend открыл устройство, но не читает кадры.
+  for (const int backend : preferred_backends) {
+    if (backend != active_backend) {
+      recovery_backends.push_back(backend);
+    }
+  }
+  recovery_backends.push_back(active_backend);
+
+  std::vector<int> unique_backends;
+  unique_backends.reserve(recovery_backends.size());
+  for (const int backend : recovery_backends) {
+    if (std::find(unique_backends.begin(), unique_backends.end(), backend) == unique_backends.end()) {
+      unique_backends.push_back(backend);
+    }
+  }
+
+  return unique_backends;
+}
+
 std::string describe_video_backend(int backend)
 {
   switch (backend) {
