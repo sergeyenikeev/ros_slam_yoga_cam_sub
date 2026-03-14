@@ -1,9 +1,10 @@
-#include <stdexcept>
+﻿#include <stdexcept>
 #include <vector>
 
 #include <gtest/gtest.h>
 #include <opencv2/core/mat.hpp>
 #include <opencv2/core/types.hpp>
+#include <opencv2/videoio.hpp>
 
 #include "rclcpp/time.hpp"
 #include "yoga_cam_sub/camera_utils.hpp"
@@ -36,6 +37,23 @@ TEST(CameraFrame, ConvertsMonoToBgr)
   EXPECT_EQ(converted.at<cv::Vec3b>(0, 0)[0], 7);
   EXPECT_EQ(converted.at<cv::Vec3b>(0, 0)[1], 7);
   EXPECT_EQ(converted.at<cv::Vec3b>(0, 0)[2], 7);
+}
+
+TEST(CameraFrame, ConvertsBgraToBgr)
+{
+  cv::Mat bgra(1, 1, CV_8UC4, cv::Scalar(3, 4, 5, 255));
+  cv::Mat converted = yoga_cam_sub::prepare_frame_for_publish(bgra);
+
+  ASSERT_EQ(converted.type(), CV_8UC3);
+  EXPECT_EQ(converted.at<cv::Vec3b>(0, 0)[0], 3);
+  EXPECT_EQ(converted.at<cv::Vec3b>(0, 0)[1], 4);
+  EXPECT_EQ(converted.at<cv::Vec3b>(0, 0)[2], 5);
+}
+
+TEST(CameraFrame, RejectsUnsupportedFrameType)
+{
+  cv::Mat unsupported(1, 1, CV_16UC1, cv::Scalar(1));
+  EXPECT_THROW(yoga_cam_sub::prepare_frame_for_publish(unsupported), std::invalid_argument);
 }
 
 TEST(CameraFrame, RejectsEmptyFrame)
@@ -78,6 +96,7 @@ TEST(CameraFrame, BuildsImageMessageForNonContinuousFrame)
   base.at<cv::Vec3b>(1, 1) = cv::Vec3b(20, 21, 22);
   base.at<cv::Vec3b>(1, 2) = cv::Vec3b(23, 24, 25);
 
+  // ROI специально оставляем неcontinuous, чтобы проверить построчное копирование.
   const cv::Mat roi = base(cv::Rect(1, 0, 2, 2));
   ASSERT_FALSE(roi.isContinuous());
 
@@ -122,6 +141,20 @@ TEST(CameraCalibration, RejectsWrongMatrixSizes)
     std::invalid_argument);
 }
 
+TEST(CameraCalibration, RejectsInvalidCameraInfoCalibration)
+{
+  yoga_cam_sub::CameraCalibration calibration = yoga_cam_sub::make_default_calibration(cv::Size(640, 360));
+  calibration.p[10] = 0.0;
+
+  EXPECT_THROW(
+    yoga_cam_sub::build_camera_info_message(
+      cv::Size(640, 360),
+      "camera_frame",
+      rclcpp::Time(0, 0, RCL_ROS_TIME),
+      calibration),
+    std::invalid_argument);
+}
+
 TEST(CameraCalibration, BuildsCameraInfoMessage)
 {
   const auto calibration = yoga_cam_sub::merge_calibration_overrides(
@@ -144,6 +177,11 @@ TEST(CameraCalibration, BuildsCameraInfoMessage)
   EXPECT_EQ(message.d.size(), 4U);
   EXPECT_DOUBLE_EQ(message.k[2], 2.0);
   EXPECT_DOUBLE_EQ(message.p[6], 4.0);
+}
+
+TEST(CameraCalibration, DescribesKnownBackend)
+{
+  EXPECT_EQ(yoga_cam_sub::describe_video_backend(cv::CAP_MSMF), "CAP_MSMF");
 }
 
 }  // namespace

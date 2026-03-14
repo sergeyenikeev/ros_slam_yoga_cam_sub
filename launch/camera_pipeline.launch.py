@@ -1,4 +1,4 @@
-import os
+﻿import os
 
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
@@ -8,6 +8,7 @@ from launch_ros.actions import Node
 
 
 def generate_launch_description():
+    # Один launch поднимает и источник кадров, и диагностический subscriber.
     package_share = get_package_share_directory('yoga_cam_sub')
     default_params = os.path.join(package_share, 'config', 'camera_publisher.params.yaml')
 

@@ -1,4 +1,4 @@
-#include "yoga_cam_sub/camera_utils.hpp"
+﻿#include "yoga_cam_sub/camera_utils.hpp"
 
 #include <algorithm>
 #include <cstdint>
@@ -13,12 +13,6 @@ namespace yoga_cam_sub
 {
 namespace
 {
-
-template<typename ArrayT>
-std::vector<double> to_vector(const ArrayT & values)
-{
-  return std::vector<double>(values.begin(), values.end());
-}
 
 template<std::size_t Size>
 std::array<double, Size> to_array(
@@ -111,6 +105,7 @@ CameraCalibration make_default_calibration(const cv::Size & image_size)
   const double cx = static_cast<double>(image_size.width - 1) / 2.0;
   const double cy = static_cast<double>(image_size.height - 1) / 2.0;
 
+  // До реальной калибровки публикуем согласованный шаблон, зависящий от размера кадра.
   CameraCalibration calibration;
   calibration.k = {{fx, 0.0, cx, 0.0, fy, cy, 0.0, 0.0, 1.0}};
   calibration.r = {{1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0}};
@@ -176,7 +171,8 @@ cv::Mat prepare_frame_for_publish(const cv::Mat & frame)
   }
 
   std::ostringstream stream;
-  stream << "Неподдерживаемый тип кадра OpenCV: " << frame.type() << ". Ожидается CV_8UC1, CV_8UC3 или CV_8UC4.";
+  stream << "Неподдерживаемый тип кадра OpenCV: " << frame.type()
+         << ". Ожидается CV_8UC1, CV_8UC3 или CV_8UC4.";
   throw std::invalid_argument(stream.str());
 }
 
@@ -207,6 +203,7 @@ sensor_msgs::msg::Image build_image_message(
     return message;
   }
 
+  // ROI-кадры OpenCV могут иметь лишний шаг строки, поэтому копируем их построчно.
   for (int row = 0; row < frame.rows; ++row) {
     const auto * row_begin = frame.ptr<std::uint8_t>(row);
     std::copy(

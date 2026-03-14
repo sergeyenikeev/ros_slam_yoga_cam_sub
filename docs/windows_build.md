@@ -1,4 +1,4 @@
-# Сборка на Windows 11
+﻿# Сборка на Windows 11
 
 ## Подтверждённая конфигурация
 
@@ -22,11 +22,11 @@ CMAKE_CXX_COMPILER not set, after EnableLanguage
 
 возникала, когда `colcon build` запускался без предварительной инициализации x64 toolchain Visual Studio.
 
-Это приводило к трём последствиям сразу:
+Это приводило сразу к трём последствиям:
 
 1. `ninja.exe` не находился в `PATH`;
 2. `cl.exe` не находился в `PATH`;
-3. в окружении отсутствовали переменные `INCLUDE`, `LIB`, `LIBPATH`, `VCToolsInstallDir` и другие, которые обычно выставляет `vcvars64.bat`.
+3. в окружении отсутствовали `INCLUDE`, `LIB`, `LIBPATH`, `VCToolsInstallDir` и другие переменные, которые выставляет `vcvars64.bat`.
 
 Дополнительно Visual Studio 2026 сообщает версию `18.0`, а часть ROS/colcon-цепочки пока ожидает `17.0`, поэтому нужен явный обход через:
 
@@ -41,13 +41,12 @@ set VisualStudioVersion=17.0
 - находит `vcvars64.bat` через `vswhere`;
 - инициализирует x64 toolchain;
 - выставляет `VisualStudioVersion=17.0`;
-- переключает `cmd.exe` на UTF-8 и включает `PYTHONUTF8=1`;
+- включает UTF-8 для `cmd.exe` и Python;
 - добавляет `Ninja`, `colcon`, OpenCV и pixi env в `PATH`;
-- выставляет `CMAKE_GENERATOR=Ninja`;
-- выставляет `CMAKE_MAKE_PROGRAM` и `OpenCV_DIR`;
-- подключает ROS underlay и, если уже существует, overlay workspace.
+- выставляет `CMAKE_GENERATOR=Ninja` и `CMAKE_MAKE_PROGRAM`;
+- подключает ROS underlay и overlay workspace.
 
-Именно этот скрипт используется всеми `.ps1`/`.cmd` командами пакета.
+Именно этот wrapper используется всеми `.ps1`/`.cmd` командами пакета.
 
 ## Рекомендуемая сборка
 
@@ -122,4 +121,8 @@ C:\pixi_ws\.pixi\envs\default\Library\cmake\OpenCVConfig.cmake
 
 ### Пакет не виден через `ros2 pkg list`
 
-После успешной сборки нужно запускать команды из окружения, где подключён overlay `C:\dev\ros2_ws\install\local_setup.bat`. Скрипт `run_in_ros_env.cmd` делает это автоматически, если каталог `install` уже существует.
+После успешной сборки команды нужно запускать из окружения, где подключён overlay `C:\dev\ros2_ws\install\local_setup.bat`. Скрипт `run_in_ros_env.cmd` делает это автоматически, если каталог `install` уже существует.
+
+### В консоли виден warning про RTI Connext DDS
+
+Предупреждение вида `RTI Connext DDS environment script not found` в этом проекте не блокирует работу, потому что пакет проверен с `rmw_fastrtps_cpp`.

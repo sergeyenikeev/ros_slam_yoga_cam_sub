@@ -1,4 +1,4 @@
-import os
+﻿import os
 
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
@@ -8,6 +8,7 @@ from launch_ros.actions import Node
 
 
 def generate_launch_description():
+    # По умолчанию подхватываем установленный профиль параметров пакета.
     package_share = get_package_share_directory('yoga_cam_sub')
     default_params = os.path.join(package_share, 'config', 'camera_publisher.params.yaml')
 
@@ -28,6 +29,7 @@ def generate_launch_description():
             parameters=[
                 LaunchConfiguration('params_file'),
                 {
+                    # Аргументы launch перекрывают значения из YAML без его ручного редактирования.
                     'device_index': LaunchConfiguration('device_index'),
                     'width': LaunchConfiguration('width'),
                     'height': LaunchConfiguration('height'),

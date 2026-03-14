@@ -1,4 +1,4 @@
-#ifndef YOGA_CAM_SUB__CAMERA_UTILS_HPP_
+﻿#ifndef YOGA_CAM_SUB__CAMERA_UTILS_HPP_
 #define YOGA_CAM_SUB__CAMERA_UTILS_HPP_
 
 #include <array>
@@ -15,6 +15,7 @@
 namespace yoga_cam_sub
 {
 
+// Параметры runtime-конфигурации узла камеры.
 struct CameraParameters
 {
   int device_index{0};
@@ -28,6 +29,7 @@ struct CameraParameters
   int max_frames{0};
 };
 
+// Калибровка, уже подготовленная к публикации в CameraInfo.
 struct CameraCalibration
 {
   std::string distortion_model{"plumb_bob"};
@@ -37,10 +39,16 @@ struct CameraCalibration
   std::array<double, 12> p{{1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0}};
 };
 
+// Возвращает список ошибок конфигурации узла камеры.
 std::vector<std::string> validate_camera_parameters(const CameraParameters & parameters);
+
+// Возвращает список ошибок калибровки перед публикацией CameraInfo.
 std::vector<std::string> validate_calibration(const CameraCalibration & calibration);
 
+// Строит безопасную шаблонную калибровку по размеру кадра.
 CameraCalibration make_default_calibration(const cv::Size & image_size);
+
+// Объединяет шаблонную калибровку с пользовательскими override-параметрами.
 CameraCalibration merge_calibration_overrides(
   const cv::Size & image_size,
   const std::string & distortion_model,
@@ -49,6 +57,7 @@ CameraCalibration merge_calibration_overrides(
   const std::vector<double> & rectification_matrix,
   const std::vector<double> & projection_matrix);
 
+// Приводит кадр OpenCV к формату CV_8UC3 для публикации как bgr8.
 cv::Mat prepare_frame_for_publish(const cv::Mat & frame);
 
 sensor_msgs::msg::Image build_image_message(
@@ -62,6 +71,7 @@ sensor_msgs::msg::CameraInfo build_camera_info_message(
   const rclcpp::Time & stamp,
   const CameraCalibration & calibration);
 
+// Возвращает понятное имя backend OpenCV для логов и диагностики.
 std::string describe_video_backend(int backend);
 
 }  // namespace yoga_cam_sub

@@ -115,6 +115,7 @@ private:
 
   void open_camera()
   {
+    // Для Windows-ноутбуков сначала пробуем MSMF, затем универсальный fallback OpenCV.
     std::vector<int> backends;
     if (camera_parameters_.use_msmf) {
       backends = {cv::CAP_MSMF, cv::CAP_ANY};
@@ -179,6 +180,7 @@ private:
       return;
     }
 
+    // CameraInfo пересобирается только при изменении фактического размера кадра.
     calibration_ = yoga_cam_sub::merge_calibration_overrides(
       image_size,
       distortion_model_,

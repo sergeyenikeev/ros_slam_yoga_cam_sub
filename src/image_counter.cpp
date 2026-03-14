@@ -39,6 +39,7 @@ public:
           msg->encoding.c_str(),
           msg->step);
 
+        // Узел используется и как ручной subscriber, и как авто-smoke-проверка.
         if (max_frames_ > 0 && static_cast<int>(count_) >= max_frames_) {
           RCLCPP_INFO(
             this->get_logger(),
