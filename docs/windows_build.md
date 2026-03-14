@@ -1,0 +1,118 @@
+﻿# Сборка на Windows 11
+
+## Подтверждённая конфигурация
+
+- Windows 11
+- ROS 2 Jazzy binary underlay: `C:\pixi_ws\ros2-windows`
+- workspace: `C:\dev\ros2_ws`
+- пакет: `C:\dev\ros2_ws\src\yoga_cam_sub`
+- Visual Studio 2026, MSVC x64
+- pixi: `C:\Users\senik\.pixi\bin\pixi.exe`
+- OpenCV из pixi-окружения `C:\pixi_ws\.pixi\envs\default`
+
+## Корневая причина ошибки CMake
+
+Ошибка вида:
+
+```text
+CMake Error: CMake was unable to find a build program corresponding to "Ninja".
+CMAKE_C_COMPILER not set, after EnableLanguage
+CMAKE_CXX_COMPILER not set, after EnableLanguage
+```
+
+возникала, когда `colcon build` запускался без предварительной инициализации x64 toolchain Visual Studio.
+
+Это приводило к трём последствиям сразу:
+
+1. `ninja.exe` не находился в `PATH`;
+2. `cl.exe` не находился в `PATH`;
+3. в окружении отсутствовали переменные `INCLUDE`, `LIB`, `LIBPATH`, `VCToolsInstallDir` и другие, которые обычно выставляет `vcvars64.bat`.
+
+Дополнительно Visual Studio 2026 сообщает версию `18.0`, а часть ROS/colcon-цепочки пока ожидает `17.0`, поэтому нужен явный обход через:
+
+```cmd
+set VisualStudioVersion=17.0
+```
+
+## Как это исправлено
+
+В пакет добавлен `scripts/run_in_ros_env.cmd`, который автоматически:
+
+- находит `vcvars64.bat` через `vswhere`;
+- инициализирует x64 toolchain;
+- выставляет `VisualStudioVersion=17.0`;
+- добавляет `Ninja`, `colcon`, OpenCV и pixi env в `PATH`;
+- выставляет `CMAKE_GENERATOR=Ninja`;
+- выставляет `CMAKE_MAKE_PROGRAM` и `OpenCV_DIR`;
+- подключает ROS underlay и, если уже существует, overlay workspace.
+
+Именно этот скрипт используется всеми `.ps1`/`.cmd` командами пакета.
+
+## Рекомендуемая сборка
+
+Из каталога пакета:
+
+```powershell
+.\scripts\build_workspace.ps1
+```
+
+Или:
+
+```cmd
+scripts\build_workspace.cmd
+```
+
+## Ручной эквивалент без скриптов
+
+Если нужно собрать вручную в одном `cmd.exe` окне:
+
+```cmd
+call "C:\Program Files\Microsoft Visual Studio\18\Community\VC\Auxiliary\Build\vcvars64.bat"
+set VisualStudioVersion=17.0
+set CMAKE_GENERATOR=Ninja
+set CMAKE_MAKE_PROGRAM=C:\Program Files\Microsoft Visual Studio\18\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\Ninja\ninja.exe
+set OpenCV_DIR=C:\pixi_ws\.pixi\envs\default\Library\cmake
+set PATH=C:\pixi_ws\.pixi\envs\default;C:\pixi_ws\.pixi\envs\default\Library\bin;C:\pixi_ws\.pixi\envs\default\Scripts;%PATH%
+call C:\pixi_ws\ros2-windows\local_setup.bat
+cd /d C:\dev\ros2_ws
+colcon build --merge-install --packages-select yoga_cam_sub --cmake-clean-cache --cmake-force-configure --cmake-args -GNinja -DCMAKE_BUILD_TYPE=Release
+```
+
+## Диагностика
+
+Быстрая автоматическая проверка:
+
+```powershell
+.\scripts\diagnose_environment.ps1
+```
+
+Полезные команды внутри инициализированного окружения:
+
+```cmd
+where cl
+where ninja
+where ros2
+where colcon
+cmake --version
+ros2 pkg list | findstr yoga_cam_sub
+```
+
+## Частые проблемы
+
+### `OpenCV` не находится
+
+Проверьте, что существует путь:
+
+```text
+C:\pixi_ws\.pixi\envs\default\Library\cmake\OpenCVConfig.cmake
+```
+
+и что переменная `OpenCV_DIR` выставляется скриптом `run_in_ros_env.cmd`.
+
+### `ros2` находится, а `colcon` нет
+
+`ros2` идёт из underlay `ros2-windows`, а `colcon` — из pixi-окружения. Нужны оба источника в `PATH`.
+
+### Пакет не виден через `ros2 pkg list`
+
+После успешной сборки нужно запускать команды из окружения, где подключён overlay `C:\dev\ros2_ws\install\local_setup.bat`. Скрипт `run_in_ros_env.cmd` делает это автоматически, если каталог `install` уже существует.
