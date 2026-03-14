@@ -18,6 +18,7 @@
 - добавлен скрипт `scripts/run_camera_calibration.ps1`, который готовит publisher, проверяет наличие `camera_calibration` и формирует точную команду запуска;
 - добавлен скрипт `scripts/import_camera_calibration.ps1`, который копирует YAML в пакет и проверяет его через `camera_calibration_inspector`;
 - добавлен узел `camera_slam_preflight` и сценарий `scripts/run_slam_preflight.ps1` для проверки фактического FPS и согласованности `Image`/`CameraInfo`;
+- добавлены сценарии `run_dataset_record.ps1` и `run_dataset_playback.ps1` для записи и повторного воспроизведения SLAM-ready bag-датасета;
 - добавлен launch `static_camera_tf.launch.py` и связка `camera_slam_ready.launch.py` для публикации стандартного optical TF;
 - `CameraInfo` публикуется синхронно с каждым кадром и имеет тот же `frame_id`, что и изображение.
 
@@ -92,7 +93,23 @@ Preflight проверит:
 - какой реальный FPS наблюдается;
 - не похож ли `CameraInfo` на шаблонную калибровку.
 
-### 7. Запускать publisher с реальной калибровкой
+### 7. Записать эталонный bag после успешного preflight
+
+Когда поток уже прошёл preflight, имеет смысл сразу сохранить воспроизводимый датасет:
+
+```powershell
+.\scripts\run_dataset_record.ps1 -DurationSeconds 5
+```
+
+По умолчанию запись идёт в `sqlite3`, чтобы повторный `ros2 bag play` на Windows сохранял корректный порядок сообщений для preflight и будущего SLAM.
+
+А затем проверить его без живой камеры:
+
+```powershell
+.\scripts\run_dataset_playback.ps1 -BagPath C:\путь\к\bag -RunPreflight
+```
+
+### 8. Запускать publisher с реальной калибровкой
 
 ```cmd
 scripts\run_in_ros_env.cmd ros2 run yoga_cam_sub camera_publisher --ros-args -p calibration_file:=C:/dev/ros2_ws/src/yoga_cam_sub/config/camera_calibration.local.yaml

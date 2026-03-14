@@ -104,6 +104,12 @@ colcon build --merge-install --packages-select yoga_cam_sub --cmake-clean-cache 
 .\scripts\slam_preflight_smoke_test.ps1
 ```
 
+Отдельная проверка записи и воспроизведения bag-датасета:
+
+```powershell
+.\scripts\dataset_bag_smoke_test.ps1
+```
+
 Отдельная проверка статического TF:
 
 ```powershell
@@ -160,6 +166,22 @@ C:\pixi_ws\.pixi\envs\default\Library\cmake\OpenCVConfig.cmake
 ```
 
 Сценарий проверяет согласованность `Image`/`CameraInfo` и печатает фактический FPS потока.
+
+### Нужно записать повторяемый offline-датасет
+
+Используйте:
+
+```powershell
+.\scripts\run_dataset_record.ps1 -DurationSeconds 5
+```
+
+По умолчанию будет использован storage `sqlite3`, потому что на Windows он стабильнее для сценария "записать по таймеру -> reindex -> сразу воспроизвести".
+
+После этого bag можно воспроизводить командой:
+
+```powershell
+.\scripts\run_dataset_playback.ps1 -BagPath C:\путь\к\bag -RunPreflight
+```
 
 ### В консоли виден warning про RTI Connext DDS
 

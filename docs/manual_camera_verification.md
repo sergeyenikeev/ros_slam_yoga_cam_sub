@@ -133,7 +133,25 @@ scripts\run_in_ros_env.cmd ros2 run yoga_cam_sub camera_publisher --ros-args -p 
 - в summary виден `average_fps`;
 - прогон завершается сообщением `SLAM preflight завершён успешно`.
 
-## 12. Если камера не открывается
+## 12. Запись bag-датасета для повторной проверки
+
+Если поток уже стабилен, можно записать короткий rosbag:
+
+```powershell
+.\scripts\run_dataset_record.ps1 -DurationSeconds 5
+```
+
+Скрипт по умолчанию пишет bag через `sqlite3`, чтобы затем тот же датасет можно было сразу воспроизвести через `ros2 bag play` без проблем с порядком сообщений.
+
+После записи можно воспроизвести датасет уже без камеры:
+
+```powershell
+.\scripts\run_dataset_playback.ps1 -BagPath C:\путь\к\bag -RunPreflight
+```
+
+Так удобно подтверждать, что будущий SLAM-модуль стабильно работает на одном и том же входе.
+
+## 13. Если камера не открывается
 
 Попробуйте fallback на `CAP_ANY`:
 

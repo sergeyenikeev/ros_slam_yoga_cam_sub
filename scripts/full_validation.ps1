@@ -1,6 +1,7 @@
 ﻿[CmdletBinding()]
 param(
   [switch]$SkipCameraChecks,
+  [switch]$SkipDatasetCheck,
   [switch]$SkipTfCheck,
   [switch]$SkipLaunchCheck,
   [int]$TopicPublisherMaxFrames = 120,
@@ -54,6 +55,14 @@ if (-not $SkipCameraChecks) {
   & (Join-Path $PSScriptRoot 'slam_preflight_smoke_test.ps1')
   if ($LASTEXITCODE -ne 0) {
     throw 'SLAM preflight smoke-тест завершился с ошибкой.'
+  }
+
+  if (-not $SkipDatasetCheck) {
+    Write-Host "`n=== Dataset bag smoke-тест ==="
+    & (Join-Path $PSScriptRoot 'dataset_bag_smoke_test.ps1')
+    if ($LASTEXITCODE -ne 0) {
+      throw 'Dataset bag smoke-тест завершился с ошибкой.'
+    }
   }
 }
 

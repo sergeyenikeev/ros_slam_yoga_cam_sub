@@ -7,6 +7,7 @@
 - реализован собственный узел `camera_publisher` на C++ с публикацией `sensor_msgs/msg/Image` и `sensor_msgs/msg/CameraInfo`;
 - реализован диагностический subscriber `image_counter` с параметрами `image_topic` и `max_frames`;
 - реализован узел `camera_slam_preflight`, который проверяет согласованность `Image`/`CameraInfo` и измеряет фактический FPS потока;
+- добавлены сценарии записи и воспроизведения rosbag-датасета для повторяемых SLAM-прогонов без живой камеры;
 - вынесена тестируемая логика подготовки кадров и `CameraInfo` в библиотеку `camera_utils`;
 - добавлены unit-тесты для валидации параметров, преобразования кадров, генерации `Image` и `CameraInfo`;
 - добавлены launch-файлы, smoke-тесты, сценарий полного прогона и скрипты сборки/диагностики;
@@ -29,6 +30,9 @@
 - `launch/static_camera_tf.launch.py` — публикация статического TF между `camera_link` и `camera_optical_frame`;
 - `launch/camera_slam_ready.launch.py` — связка publisher + статический TF для следующего этапа SLAM;
 - `scripts/full_validation.ps1` — единый автоматический прогон всех доступных проверок;
+- `scripts/run_dataset_record.ps1` — запись SLAM-ready rosbag-датасета с изображением, `CameraInfo` и `tf_static`;
+- `scripts/run_dataset_playback.ps1` — воспроизведение записанного bag-файла с optional subscriber/preflight;
+- `scripts/dataset_bag_smoke_test.ps1` — автоматическая запись и проверка короткого bag-датасета;
 - `scripts/run_camera_calibration.ps1` — подготовка и запуск калибровки камеры;
 - `scripts/import_camera_calibration.ps1` — импорт и валидация YAML-калибровки;
 - `scripts/run_slam_preflight.ps1` — запуск автоматической preflight-проверки потока камеры;
@@ -77,7 +81,7 @@ scripts\build_workspace.cmd
 .\scripts\full_validation.ps1
 ```
 
-Сценарий последовательно выполняет диагностику окружения, сборку, unit/lint тесты, smoke-тест subscriber, проверку YAML-калибровки, проверку реальных топиков, SLAM preflight smoke-тест и launch smoke-тест.
+Сценарий последовательно выполняет диагностику окружения, сборку, unit/lint тесты, smoke-тест subscriber, проверку YAML-калибровки, проверку реальных топиков, SLAM preflight smoke-тест, dataset bag smoke-тест и launch smoke-тест.
 
 ### 6. Подготовка калибровки
 
@@ -114,6 +118,23 @@ scripts\build_workspace.cmd
 ```
 
 Эта команда запускает `camera_publisher` и статический TF `camera_link -> camera_optical_frame`.
+
+### 10. Запись датасета для SLAM
+
+```powershell
+.\scripts\run_dataset_record.ps1 -DurationSeconds 5
+```
+
+Скрипт поднимает SLAM-ready pipeline, записывает `/camera/image_raw`, `/camera/camera_info` и `/tf_static` в rosbag и сохраняет результат в `artifacts/datasets/`.
+По умолчанию используется backend `sqlite3`, потому что он стабильно переживает принудительную остановку записи на Windows и затем корректно проходит playback/preflight. При необходимости можно явно выбрать `-StorageId mcap`.
+
+### 11. Воспроизведение датасета
+
+```powershell
+.\scripts\run_dataset_playback.ps1 -BagPath C:\dev\ros2_ws\src\yoga_cam_sub\artifacts\datasets\camera_dataset_YYYYMMDD_HHMMSS\bag -RunPreflight
+```
+
+Так можно повторно гонять проверку потока без физической камеры.
 
 ## Важные параметры `camera_publisher`
 
@@ -158,6 +179,12 @@ scripts\build_workspace.cmd
 .\scripts\slam_preflight_smoke_test.ps1
 ```
 
+Проверить полный workflow датасета можно отдельно:
+
+```powershell
+.\scripts\dataset_bag_smoke_test.ps1
+```
+
 ## Почему раньше падала сборка
 
 Проблема была не в самом `CMakeLists.txt`, а в окружении запуска `colcon`:
@@ -177,13 +204,15 @@ scripts\build_workspace.cmd
 1. Выполнить реальную калибровку камеры и сохранить матрицы в отдельный YAML-файл.
 2. Импортировать YAML через `scripts/import_camera_calibration.ps1` и запустить pipeline уже с реальным `CameraInfo`.
 3. Прогнать `scripts/run_slam_preflight.ps1` и зафиксировать рабочие FPS/разрешение для будущего SLAM.
-4. Подстроить параметры статического TF под реальное положение камеры на ноутбуке или на роботе.
-5. Подключить следующий monocular SLAM-модуль к `/camera/image_raw` и `/camera/camera_info`.
-6. При необходимости расширить пакет диагностикой джиттера, пропуска кадров и transport-вариантами.
+4. Записать эталонный rosbag через `scripts/run_dataset_record.ps1` для повторяемых offline-прогонов.
+5. Подстроить параметры статического TF под реальное положение камеры на ноутбуке или на роботе.
+6. Подключить следующий monocular SLAM-модуль к `/camera/image_raw` и `/camera/camera_info` или к воспроизводимому bag-датасету.
+7. При необходимости расширить пакет диагностикой джиттера, пропуска кадров и transport-вариантами.
 
 ## Дополнительная документация
 
 - `docs/windows_build.md` — настройка сборки и разбор Windows-окружения;
 - `docs/manual_camera_verification.md` — ручная проверка камеры и топиков;
 - `docs/calibration_and_slam.md` — переход к калибровке камеры и следующему шагу visual SLAM;
-- `docs/slam_preflight.md` — подробности по автоматической preflight-проверке потока.
+- `docs/slam_preflight.md` — подробности по автоматической preflight-проверке потока;
+- `docs/dataset_capture.md` — запись и воспроизведение rosbag-датасетов для offline SLAM-проверок.
