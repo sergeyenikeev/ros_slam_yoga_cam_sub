@@ -6,12 +6,12 @@ $ErrorActionPreference = 'Stop'
 
 $envScript = Join-Path $PSScriptRoot 'run_in_ros_env.cmd'
 $checks = @(
-  @{ Title = 'Поиск cl.exe'; Args = @('where', 'cl') },
-  @{ Title = 'Поиск ninja.exe'; Args = @('where', 'ninja') },
-  @{ Title = 'Поиск ros2'; Args = @('where', 'ros2') },
-  @{ Title = 'Поиск colcon'; Args = @('where', 'colcon') },
+  @{ Title = 'Путь к cl.exe'; Args = @('where', 'cl') },
+  @{ Title = 'Путь к ninja.exe'; Args = @('where', 'ninja') },
+  @{ Title = 'Путь к ros2'; Args = @('where', 'ros2') },
+  @{ Title = 'Путь к colcon'; Args = @('where', 'colcon') },
   @{ Title = 'Версия CMake'; Args = @('cmake', '--version') },
-  @{ Title = 'Список ROS-пакетов с yoga_cam_sub'; Args = @('cmd', '/c', 'ros2 pkg list | findstr yoga_cam_sub') }
+  @{ Title = 'Проверка ROS-пакета yoga_cam_sub'; Args = @('cmd', '/c', 'ros2 pkg list | findstr yoga_cam_sub') }
 )
 
 foreach ($check in $checks) {
@@ -22,4 +22,4 @@ foreach ($check in $checks) {
   }
 }
 
-Write-Host "`n[ИНФО] Диагностика завершена успешно."
+Write-Host "`n[ИНФО] Диагностика окружения завершена успешно."

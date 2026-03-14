@@ -1,4 +1,4 @@
-﻿camera_publisher:
+camera_publisher:
   ros__parameters:
     # Заполните значения после выполнения camera_calibration.
     distortion_model: plumb_bob

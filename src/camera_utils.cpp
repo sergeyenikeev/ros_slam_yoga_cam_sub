@@ -1,4 +1,4 @@
-﻿#include "yoga_cam_sub/camera_utils.hpp"
+#include "yoga_cam_sub/camera_utils.hpp"
 
 #include <algorithm>
 #include <cstdint>

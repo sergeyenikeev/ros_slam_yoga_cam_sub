@@ -32,7 +32,7 @@ try {
   if ($EchoMessages) {
     Remove-Item $imageFile, $imageErrFile, $cameraInfoFile, $cameraInfoErrFile -ErrorAction SilentlyContinue
 
-    Write-Host '[ИНФО] Подготавливаются подписчики ros2 topic echo --once.'
+    Write-Host '[ИНФО] Подготавливаем процессы ros2 topic echo --once.'
     $imageEchoProcess = Start-Process `
       -FilePath $envScript `
       -ArgumentList @('ros2', 'topic', 'echo', '--once', $ImageTopic, 'sensor_msgs/msg/Image', '--qos-reliability', 'best_effort') `
@@ -50,7 +50,7 @@ try {
 
   if ($LaunchPublisher) {
     Remove-Item $publisherStdout, $publisherStderr -ErrorAction SilentlyContinue
-    Write-Host '[ИНФО] Запускается camera_publisher для проверки топиков.'
+    Write-Host '[ИНФО] Запускаем camera_publisher для проверки топиков.'
     $publisherProcess = Start-Process `
       -FilePath $envScript `
       -ArgumentList @('ros2', 'run', 'yoga_cam_sub', 'camera_publisher', '--ros-args', '-p', "device_index:=$DeviceIndex", '-p', "max_frames:=$PublisherMaxFrames") `
@@ -60,17 +60,25 @@ try {
     Start-Sleep -Seconds $PublisherStartupDelaySeconds
   }
 
-  Write-Host '[ИНФО] Проверяется список ROS-топиков.'
-  $topicList = & $envScript ros2 topic list
-  if ($LASTEXITCODE -ne 0) {
-    throw 'Не удалось получить список ROS-топиков.'
+  Write-Host '[ИНФО] Проверяем список ROS-топиков.'
+  $topicList = @()
+  $topicFound = $false
+  for ($attempt = 1; $attempt -le 15; $attempt++) {
+    $topicList = & $envScript ros2 topic list
+    if ($LASTEXITCODE -ne 0) {
+      throw 'Не удалось получить список ROS-топиков.'
+    }
+
+    if (($topicList -contains $ImageTopic) -and ($topicList -contains $CameraInfoTopic)) {
+      $topicFound = $true
+      break
+    }
+
+    Start-Sleep -Seconds 1
   }
 
-  if ($topicList -notcontains $ImageTopic) {
-    throw "Топик '$ImageTopic' не найден."
-  }
-  if ($topicList -notcontains $CameraInfoTopic) {
-    throw "Топик '$CameraInfoTopic' не найден."
+  if (-not $topicFound) {
+    throw "Топики '$ImageTopic' и '$CameraInfoTopic' не появились в ROS graph за отведённое время."
   }
 
   Write-Host "[ИНФО] Найдены топики '$ImageTopic' и '$CameraInfoTopic'."
@@ -87,10 +95,10 @@ try {
     $cameraInfoContent = if (Test-Path $cameraInfoFile) { Get-Content $cameraInfoFile -Raw } else { '' }
 
     if ($imageContent -notmatch 'encoding: bgr8') {
-      throw "Сообщение из '$ImageTopic' не сохранено или не содержит encoding: bgr8."
+      throw "Сообщение из '$ImageTopic' не содержит ожидаемое поле encoding: bgr8."
     }
     if ($cameraInfoContent -notmatch 'distortion_model:') {
-      throw "Сообщение из '$CameraInfoTopic' не сохранено или не содержит distortion_model."
+      throw "Сообщение из '$CameraInfoTopic' не содержит ожидаемое поле distortion_model."
     }
 
     Write-Host "[ИНФО] Сообщения сохранены в $artifactRoot."

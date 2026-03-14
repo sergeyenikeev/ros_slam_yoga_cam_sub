@@ -18,6 +18,6 @@ $arguments = @(
   '--cmake-args', '-GNinja', '-DCMAKE_BUILD_TYPE=Release'
 ) + $ExtraArgs
 
-Write-Host '[ИНФО] Запускается сборка пакета yoga_cam_sub.'
+Write-Host '[ИНФО] Запускаем сборку workspace для yoga_cam_sub.'
 & $envScript @arguments
 exit $LASTEXITCODE

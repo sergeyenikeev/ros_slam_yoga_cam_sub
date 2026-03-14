@@ -1,4 +1,4 @@
-﻿camera_publisher:
+camera_publisher:
   ros__parameters:
     device_index: 0
     width: 640

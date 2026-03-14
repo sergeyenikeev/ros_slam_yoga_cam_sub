@@ -1,4 +1,4 @@
-﻿# Сборка на Windows 11
+# Сборка на Windows 11
 
 ## Подтверждённая конфигурация
 
@@ -41,6 +41,7 @@ set VisualStudioVersion=17.0
 - находит `vcvars64.bat` через `vswhere`;
 - инициализирует x64 toolchain;
 - выставляет `VisualStudioVersion=17.0`;
+- переключает `cmd.exe` на UTF-8 и включает `PYTHONUTF8=1`;
 - добавляет `Ninja`, `colcon`, OpenCV и pixi env в `PATH`;
 - выставляет `CMAKE_GENERATOR=Ninja`;
 - выставляет `CMAKE_MAKE_PROGRAM` и `OpenCV_DIR`;
@@ -84,6 +85,12 @@ colcon build --merge-install --packages-select yoga_cam_sub --cmake-clean-cache 
 
 ```powershell
 .\scripts\diagnose_environment.ps1
+```
+
+Полный автоматический прогон:
+
+```powershell
+.\scripts\full_validation.ps1
 ```
 
 Полезные команды внутри инициализированного окружения:

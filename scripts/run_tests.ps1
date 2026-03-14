@@ -12,7 +12,7 @@ if (Test-Path $staleLintResult) {
   cmd.exe /c $deleteCommand | Out-Null
 }
 
-Write-Host '[ИНФО] Запускаются тесты пакета yoga_cam_sub.'
+Write-Host '[ИНФО] Запускаем набор тестов yoga_cam_sub.'
 & $envScript colcon test --merge-install --packages-select yoga_cam_sub --event-handlers console_cohesion+
 if ($LASTEXITCODE -ne 0) {
   exit $LASTEXITCODE

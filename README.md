@@ -1,4 +1,4 @@
-﻿# yoga_cam_sub
+# yoga_cam_sub
 
 `yoga_cam_sub` — ROS 2 Jazzy пакет на C++ для публикации кадров со встроенной камеры ноутбука в топики `/camera/image_raw` и `/camera/camera_info`, а также для базовой подготовки monocular visual SLAM конвейера на Windows 11.
 
@@ -10,6 +10,7 @@
 - вынесена тестируемая логика подготовки кадров и `CameraInfo` в библиотеку `camera_utils`;
 - добавлены unit-тесты для проверки валидации параметров, преобразования кадров и генерации сообщений;
 - добавлены launch-файлы, шаблоны параметров и скрипты для сборки, запуска, smoke-тестов и диагностики окружения;
+- добавлен единый сценарий полного прогона `full_validation.ps1`;
 - подготовлен шаблон параметров для дальнейшей калибровки камеры.
 
 ## Структура пакета
@@ -22,6 +23,7 @@
 - `launch/camera_publisher.launch.py` — запуск только publisher;
 - `launch/camera_pipeline.launch.py` — совместный запуск publisher и subscriber;
 - `scripts/` — скрипты сборки, запуска, диагностики и smoke-тестов;
+- `scripts/full_validation.ps1` — единый автоматический прогон всех доступных проверок;
 - `test/test_camera_utils.cpp` — unit-тесты;
 - `docs/` — подробная документация.
 
@@ -69,6 +71,14 @@ scripts\build_workspace.cmd
 .\scripts\check_topics.ps1 -EchoMessages
 ```
 
+### 5. Полный автоматический прогон
+
+```powershell
+.\scripts\full_validation.ps1
+```
+
+Сценарий последовательно выполняет диагностику окружения, сборку, unit/lint тесты, smoke-тест subscriber, проверку реальных топиков и launch smoke-тест.
+
 ## Важные параметры `camera_publisher`
 
 - `device_index` — индекс камеры OpenCV;
@@ -100,6 +110,12 @@ scripts\build_workspace.cmd
 ```
 
 Скрипт проверяет наличие `cl`, `ninja`, `ros2`, `colcon`, а также выводит `cmake --version` и наличие пакета `yoga_cam_sub` в `ros2 pkg list`.
+
+Если нужен единый прогон всех проверок одной командой:
+
+```powershell
+.\scripts\full_validation.ps1
+```
 
 ## Почему раньше падала сборка
 

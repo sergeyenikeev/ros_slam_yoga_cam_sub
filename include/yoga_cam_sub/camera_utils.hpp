@@ -1,4 +1,4 @@
-﻿#ifndef YOGA_CAM_SUB__CAMERA_UTILS_HPP_
+#ifndef YOGA_CAM_SUB__CAMERA_UTILS_HPP_
 #define YOGA_CAM_SUB__CAMERA_UTILS_HPP_
 
 #include <array>
