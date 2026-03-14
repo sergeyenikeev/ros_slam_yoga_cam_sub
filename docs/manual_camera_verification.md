@@ -151,6 +151,12 @@ scripts\run_in_ros_env.cmd ros2 run yoga_cam_sub camera_publisher --ros-args -p 
 
 Так удобно подтверждать, что будущий SLAM-модуль стабильно работает на одном и том же входе.
 
+Если нужен сохраняемый JSON-отчёт по такому прогону, дополнительно выполните:
+
+```powershell
+.\scripts\run_dataset_report.ps1 -BagPath C:\путь\к\bag
+```
+
 ## 13. Если камера не открывается
 
 Попробуйте fallback на `CAP_ANY`:

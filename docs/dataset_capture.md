@@ -32,6 +32,8 @@ Rosbag-датасет полезен в трёх сценариях:
 - при наличии использует `config/camera_calibration.local.yaml`;
 - записывает bag через storage `sqlite3`, который на Windows надёжнее переносит остановку записи и последующий `ros2 bag reindex`;
 - записывает bag в `artifacts/datasets/camera_dataset_<timestamp>/bag`;
+- сохраняет `dataset_manifest.json` с параметрами захвата, bag summary и git-коммитом;
+- обновляет общий `artifacts/datasets/dataset_catalog.json`;
 - после окончания автоматически печатает `ros2 bag info`.
 
 ## Полезные параметры записи
@@ -93,8 +95,39 @@ Smoke-тест:
 
 1. пишет короткий bag с реальной камеры;
 2. проверяет наличие `metadata.yaml`;
-3. воспроизводит bag в `camera_slam_preflight`;
-4. завершает прогон ошибкой, если запись или воспроизведение не прошли.
+3. проверяет наличие `dataset_manifest.json` и `dataset_catalog.json`;
+4. воспроизводит bag в `camera_slam_preflight`;
+5. строит итоговый JSON-report по датасету;
+6. завершает прогон ошибкой, если запись или воспроизведение не прошли.
+
+## Манифест датасета
+
+После записи рядом с bag появляется `dataset_manifest.json`. Он нужен, чтобы офлайн-прогоны были воспроизводимыми даже через несколько дней:
+
+- хранит параметры камеры и выбранный backend OpenCV;
+- сохраняет bag summary и counts по топикам;
+- фиксирует git-ветку и commit, на котором был записан датасет;
+- даёт единый JSON-источник для дальнейших SLAM-экспериментов и отчётов.
+
+## Общий каталог датасетов
+
+Чтобы быстро просмотреть все записанные bag, используйте:
+
+```powershell
+.\scripts\update_dataset_catalog.ps1
+```
+
+Скрипт пересобирает `artifacts/datasets/dataset_catalog.json` и печатает краткую таблицу по доступным датасетам.
+
+## Offline report по датасету
+
+Если нужно сохранить отдельный report по offline playback/preflight, используйте:
+
+```powershell
+.\scripts\run_dataset_report.ps1 -BagPath C:\путь\к\bag
+```
+
+Скрипт повторно воспроизводит bag, извлекает summary из `camera_slam_preflight` и записывает JSON-отчёт в каталог `reports/` рядом с датасетом.
 
 ## Что смотреть в результате
 

@@ -183,6 +183,12 @@ C:\pixi_ws\.pixi\envs\default\Library\cmake\OpenCVConfig.cmake
 .\scripts\run_dataset_playback.ps1 -BagPath C:\путь\к\bag -RunPreflight
 ```
 
+Если нужен сохраняемый JSON-отчёт по offline-прогону, используйте:
+
+```powershell
+.\scripts\run_dataset_report.ps1 -BagPath C:\путь\к\bag
+```
+
 ### В консоли виден warning про RTI Connext DDS
 
 Предупреждение вида `RTI Connext DDS environment script not found` в этом проекте не блокирует работу, потому что пакет проверен с `rmw_fastrtps_cpp`.

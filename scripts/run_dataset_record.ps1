@@ -18,7 +18,9 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 $envScript = Join-Path $PSScriptRoot 'run_in_ros_env.cmd'
+$datasetUtils = Join-Path $PSScriptRoot 'dataset_catalog_utils.ps1'
 $packageRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
+. $datasetUtils
 
 function Stop-ProcessTree {
   param(
@@ -267,6 +269,31 @@ function Invoke-RecordingAttempt {
   Copy-Item $bagStderr $finalBagStderr -Force
   Copy-Item $bagInfoFile $finalBagInfoFile -Force
 
+  $recordingParameters = [ordered]@{
+    duration_seconds = $DurationSeconds
+    startup_delay_seconds = $StartupDelaySeconds
+    device_index = $DeviceIndex
+    width = $Width
+    height = $Height
+    fps = $Fps
+    frame_id = $FrameId
+    calibration_file = $CalibrationFile
+    storage_id = $StorageId
+    use_msmf_requested = $UseMsmf
+    use_msmf_selected = $CandidateUseMsmf
+  }
+  $manifestPath = Get-DatasetManifestPath -DatasetRoot $datasetRoot
+  $manifest = New-DatasetManifest `
+    -DatasetName $DatasetName `
+    -DatasetRoot $datasetRoot `
+    -BagRoot $bagRoot `
+    -LogRoot $logRoot `
+    -RecordingParameters $recordingParameters `
+    -BagInfoText $bagInfoText `
+    -GitSnapshot (Get-GitSnapshot -RepositoryRoot $packageRoot) `
+    -ManifestSource 'record'
+  Save-DatasetManifest -Manifest $manifest -ManifestPath $manifestPath
+
   return $useMsmfString
 }
 
@@ -332,8 +359,15 @@ if (-not $selectedBackendString) {
   throw ('Не удалось записать датасет ни одним режимом backend OpenCV. ' + ($attemptErrors -join ' | '))
 }
 
+$catalog = Update-DatasetCatalogFile -DatasetsRoot $OutputRoot -RepositoryRoot $packageRoot
+$manifestPath = Get-DatasetManifestPath -DatasetRoot $datasetRoot
+$catalogPath = Get-DatasetCatalogPath -DatasetsRoot $OutputRoot
+
 Write-Host '[ИНФО] Запись датасета завершена успешно.'
 Write-Host "[ИНФО] Успешный backend-приоритет use_msmf=$selectedBackendString"
 Write-Host "[ИНФО] Каталог датасета: $datasetRoot"
 Write-Host "[ИНФО] Каталог bag-файла: $bagRoot"
+Write-Host "[ИНФО] Манифест датасета: $manifestPath"
+Write-Host "[ИНФО] Каталог датасетов обновлён: $catalogPath (dataset_count=$($catalog.dataset_count))"
+
 

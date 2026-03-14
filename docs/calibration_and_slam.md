@@ -109,6 +109,12 @@ Preflight проверит:
 .\scripts\run_dataset_playback.ps1 -BagPath C:\путь\к\bag -RunPreflight
 ```
 
+При желании тот же offline-прогон можно сохранить как отдельный JSON-report:
+
+```powershell
+.\scripts\run_dataset_report.ps1 -BagPath C:\путь\к\bag
+```
+
 ### 8. Запускать publisher с реальной калибровкой
 
 ```cmd

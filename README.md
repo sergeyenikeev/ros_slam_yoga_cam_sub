@@ -32,6 +32,8 @@
 - `scripts/full_validation.ps1` — единый автоматический прогон всех доступных проверок;
 - `scripts/run_dataset_record.ps1` — запись SLAM-ready rosbag-датасета с изображением, `CameraInfo` и `tf_static`;
 - `scripts/run_dataset_playback.ps1` — воспроизведение записанного bag-файла с optional subscriber/preflight;
+- `scripts/run_dataset_report.ps1` — построение JSON-отчёта по recorded bag и offline preflight;
+- `scripts/update_dataset_catalog.ps1` — пересборка общего каталога датасетов из `artifacts/datasets/`;
 - `scripts/dataset_bag_smoke_test.ps1` — автоматическая запись и проверка короткого bag-датасета;
 - `scripts/run_camera_calibration.ps1` — подготовка и запуск калибровки камеры;
 - `scripts/import_camera_calibration.ps1` — импорт и валидация YAML-калибровки;
@@ -127,6 +129,7 @@ scripts\build_workspace.cmd
 
 Скрипт поднимает SLAM-ready pipeline, записывает `/camera/image_raw`, `/camera/camera_info` и `/tf_static` в rosbag и сохраняет результат в `artifacts/datasets/`.
 По умолчанию используется backend `sqlite3`, потому что он стабильно переживает принудительную остановку записи на Windows и затем корректно проходит playback/preflight. При необходимости можно явно выбрать `-StorageId mcap`.
+После записи рядом с bag автоматически появляются `dataset_manifest.json` и общий `dataset_catalog.json`.
 
 ### 11. Воспроизведение датасета
 
@@ -135,6 +138,22 @@ scripts\build_workspace.cmd
 ```
 
 Так можно повторно гонять проверку потока без физической камеры.
+
+### 12. Построение отчёта по датасету
+
+```powershell
+.\scripts\run_dataset_report.ps1 -BagPath C:\dev\ros2_ws\src\yoga_cam_sub\artifacts\datasets\camera_dataset_YYYYMMDD_HHMMSS\bag
+```
+
+Скрипт прогоняет offline playback/preflight и сохраняет JSON-отчёт в `reports/` рядом с датасетом.
+
+### 13. Обновление общего каталога датасетов
+
+```powershell
+.\scripts\update_dataset_catalog.ps1
+```
+
+Каталог помогает быстро увидеть, какие bag уже записаны, с каким storage, разрешением и сколько в них кадров.
 
 ## Важные параметры `camera_publisher`
 
@@ -216,3 +235,4 @@ scripts\build_workspace.cmd
 - `docs/calibration_and_slam.md` — переход к калибровке камеры и следующему шагу visual SLAM;
 - `docs/slam_preflight.md` — подробности по автоматической preflight-проверке потока;
 - `docs/dataset_capture.md` — запись и воспроизведение rosbag-датасетов для offline SLAM-проверок.
+- `docs/dataset_capture.md` — запись, каталогизация и отчётность по rosbag-датасетам для offline SLAM-проверок.
