@@ -21,8 +21,12 @@
 - `config/camera_calibration.template.yaml` — шаблон для реальной калибровки;
 - `launch/camera_publisher.launch.py` — запуск только publisher;
 - `launch/camera_pipeline.launch.py` — совместный запуск publisher и subscriber;
+- `launch/static_camera_tf.launch.py` — публикация статического TF между `camera_link` и `camera_optical_frame`;
+- `launch/camera_slam_ready.launch.py` — связка publisher + статический TF для следующего этапа SLAM;
 - `scripts/full_validation.ps1` — единый автоматический прогон всех доступных проверок;
 - `scripts/run_camera_calibration.ps1` — подготовка и запуск калибровки камеры;
+- `scripts/tf_smoke_test.ps1` — автоматическая проверка публикации статического TF;
+- `scripts/run_slam_ready_pipeline.ps1` — запуск SLAM-ready конфигурации камеры;
 - `docs/` — подробная документация по сборке, ручной проверке и подготовке к SLAM.
 
 ## Быстрый старт
@@ -77,6 +81,14 @@ scripts\build_workspace.cmd
 
 Если инструмент `camera_calibration` установлен, можно запускать его тем же скриптом без `-CheckOnly`.
 
+### 7. Запуск SLAM-ready конфигурации
+
+```powershell
+.\scripts\run_slam_ready_pipeline.ps1
+```
+
+Эта команда запускает `camera_publisher` и статический TF `camera_link -> camera_optical_frame`.
+
 ## Важные параметры `camera_publisher`
 
 - `device_index` — индекс камеры OpenCV;
@@ -107,6 +119,12 @@ scripts\build_workspace.cmd
 
 Скрипт проверяет наличие `cl`, `ninja`, `ros2`, `colcon`, выводит `cmake --version` и наличие пакета `yoga_cam_sub` в `ros2 pkg list`.
 
+Проверить только участок статического TF можно отдельно:
+
+```powershell
+.\scripts\tf_smoke_test.ps1
+```
+
 ## Почему раньше падала сборка
 
 Проблема была не в самом `CMakeLists.txt`, а в окружении запуска `colcon`:
@@ -124,7 +142,7 @@ scripts\build_workspace.cmd
 ## Следующие шаги
 
 1. Выполнить реальную калибровку камеры и сохранить матрицы в отдельный YAML-файл.
-2. Добавить статический TF между `camera_link` и `camera_optical_frame`.
+2. Подстроить параметры статического TF под реальное положение камеры на ноутбуке или на роботе.
 3. Подключить следующий monocular SLAM-модуль к `/camera/image_raw` и `/camera/camera_info`.
 4. При необходимости расширить пакет диагностикой джиттера, пропуска кадров и transport-вариантами.
 

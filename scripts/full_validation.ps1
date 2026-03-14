@@ -1,6 +1,7 @@
 ﻿[CmdletBinding()]
 param(
   [switch]$SkipCameraChecks,
+  [switch]$SkipTfCheck,
   [switch]$SkipLaunchCheck,
   [int]$TopicPublisherMaxFrames = 120,
   [int]$TopicEchoTimeoutSeconds = 40,
@@ -25,6 +26,14 @@ foreach ($step in $steps) {
   & (Join-Path $PSScriptRoot $step.Script) @stepArgs
   if ($LASTEXITCODE -ne 0) {
     throw "Шаг '$($step.Name)' завершился с кодом $LASTEXITCODE."
+  }
+}
+
+if (-not $SkipTfCheck) {
+  Write-Host "`n=== Smoke-тест статического TF ==="
+  & (Join-Path $PSScriptRoot 'tf_smoke_test.ps1')
+  if ($LASTEXITCODE -ne 0) {
+    throw 'Smoke-тест статического TF завершился с ошибкой.'
   }
 }
 

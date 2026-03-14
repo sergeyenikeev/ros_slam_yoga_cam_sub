@@ -76,7 +76,23 @@ scripts\run_in_ros_env.cmd ros2 launch yoga_cam_sub camera_pipeline.launch.py
 
 Если камера доступна, одновременно должны работать `camera_publisher` и `image_counter`.
 
-## 8. Подготовка к калибровке
+## 8. Проверка статического TF
+
+В отдельном окне:
+
+```cmd
+scripts\run_in_ros_env.cmd ros2 launch yoga_cam_sub static_camera_tf.launch.py
+```
+
+И затем:
+
+```cmd
+scripts\run_in_ros_env.cmd ros2 topic echo --once /tf_static
+```
+
+Ожидается transform с `frame_id: camera_link` и `child_frame_id: camera_optical_frame`.
+
+## 9. Подготовка к калибровке
 
 Сначала можно проверить доступность GUI-калибратора и готовую команду запуска:
 
@@ -86,7 +102,7 @@ scripts\run_in_ros_env.cmd ros2 launch yoga_cam_sub camera_pipeline.launch.py
 
 Если инструмент установлен, тот же скрипт можно запустить без `-CheckOnly`.
 
-## 9. Если камера не открывается
+## 10. Если камера не открывается
 
 Попробуйте fallback на `CAP_ANY`:
 

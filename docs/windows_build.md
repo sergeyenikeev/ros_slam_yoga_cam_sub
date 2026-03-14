@@ -92,6 +92,12 @@ colcon build --merge-install --packages-select yoga_cam_sub --cmake-clean-cache 
 .\scripts\full_validation.ps1
 ```
 
+Отдельная проверка статического TF:
+
+```powershell
+.\scripts\tf_smoke_test.ps1
+```
+
 Полезные команды внутри инициализированного окружения:
 
 ```cmd

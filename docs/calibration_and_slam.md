@@ -14,6 +14,7 @@
 - параметры калибровки (`distortion_model`, `distortion_coefficients`, `camera_matrix`, `rectification_matrix`, `projection_matrix`) уже встроены в `camera_publisher`;
 - есть шаблон `config/camera_calibration.template.yaml`;
 - добавлен скрипт `scripts/run_camera_calibration.ps1`, который готовит publisher, проверяет наличие `camera_calibration` и формирует точную команду запуска;
+- добавлен launch `static_camera_tf.launch.py` и связка `camera_slam_ready.launch.py` для публикации стандартного optical TF;
 - `CameraInfo` публикуется синхронно с каждым кадром и имеет тот же `frame_id`, что и изображение.
 
 ## Рекомендуемый следующий этап — калибровка
@@ -82,7 +83,19 @@ SLAM-пакетам обычно нужен стабильный набор fram
 - `camera_link`
 - `camera_optical_frame`
 
-Рекомендуется добавить статический TF между `camera_link` и `camera_optical_frame`, если дальше будет использоваться стандартная ROS-геометрия камеры.
+В пакете уже есть готовый launch для этого преобразования:
+
+```cmd
+scripts\run_in_ros_env.cmd ros2 launch yoga_cam_sub static_camera_tf.launch.py
+```
+
+И готовая SLAM-ready связка:
+
+```powershell
+.\scripts\run_slam_ready_pipeline.ps1
+```
+
+По умолчанию она публикует стандартный ROS optical transform `camera_link -> camera_optical_frame`. При реальном монтаже камеры смещения и углы можно переопределить launch-аргументами.
 
 ### Стабильные timestamp
 
