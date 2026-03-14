@@ -1,47 +1,82 @@
+#include <cstdint>
 #include <memory>
-// Базовые зависимости ROS 2: ядро rclcpp для работы с узлами и сообщение изображения.
+#include <stdexcept>
+#include <string>
+
 #include "rclcpp/rclcpp.hpp"
 #include "sensor_msgs/msg/image.hpp"
 
 class ImageCounter : public rclcpp::Node
 {
 public:
-  ImageCounter() : Node("image_counter"), count_(0)
+  ImageCounter()
+  : Node("image_counter"), count_(0)
   {
-    // Создаем подписку на топик с изображениями. Буфер 10 сообщений позволяет
-    // аккумулировать кадры, если потребление немного запаздывает.
+    image_topic_ = this->declare_parameter<std::string>("image_topic", "/camera/image_raw");
+    max_frames_ = static_cast<int>(this->declare_parameter<std::int64_t>("max_frames", 0));
+
+    if (image_topic_.empty()) {
+      throw std::invalid_argument("Параметр image_topic не должен быть пустым.");
+    }
+    if (max_frames_ < 0) {
+      throw std::invalid_argument("Параметр max_frames не может быть отрицательным.");
+    }
+
+    const auto qos = rclcpp::SensorDataQoS();
     sub_ = this->create_subscription<sensor_msgs::msg::Image>(
-      "/image",
-      10,
+      image_topic_,
+      qos,
       [this](const sensor_msgs::msg::Image::SharedPtr msg)
       {
-        // На каждый принятый кадр увеличиваем счетчик.
         ++count_;
-        // Выводим диагностику: номер кадра плюс параметры изображения, чтобы
-        // можно было следить за разрешением и форматом потока.
         RCLCPP_INFO(
           this->get_logger(),
-          "frame=%zu width=%u height=%u encoding=%s step=%u",
+          "Получен кадр #%zu: frame_id=%s width=%u height=%u encoding=%s step=%u",
           count_,
+          msg->header.frame_id.c_str(),
           msg->width,
           msg->height,
           msg->encoding.c_str(),
           msg->step);
+
+        if (max_frames_ > 0 && static_cast<int>(count_) >= max_frames_) {
+          RCLCPP_INFO(
+            this->get_logger(),
+            "Достигнут лимит max_frames=%d. Узел завершает работу.",
+            max_frames_);
+          rclcpp::shutdown();
+        }
       });
+
+    RCLCPP_INFO(
+      this->get_logger(),
+      "Узел image_counter запущен. Подписка на топик '%s', max_frames=%d.",
+      image_topic_.c_str(),
+      max_frames_);
   }
 
 private:
-  size_t count_;
+  std::size_t count_;
+  int max_frames_;
+  std::string image_topic_;
   rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr sub_;
 };
 
 int main(int argc, char ** argv)
 {
-  // Инициализация ядра ROS 2 перед созданием узлов и подписок.
   rclcpp::init(argc, argv);
-  // Запускаем узел, чтобы он обрабатывал все сообщения подписки, пока не остановлен.
-  rclcpp::spin(std::make_shared<ImageCounter>());
-  // Очищаем ресурсы rclcpp и завершаем работу.
+
+  try {
+    rclcpp::spin(std::make_shared<ImageCounter>());
+  } catch (const std::exception & error) {
+    RCLCPP_FATAL(
+      rclcpp::get_logger("image_counter"),
+      "Узел image_counter завершился с ошибкой: %s",
+      error.what());
+    rclcpp::shutdown();
+    return 1;
+  }
+
   rclcpp::shutdown();
   return 0;
 }

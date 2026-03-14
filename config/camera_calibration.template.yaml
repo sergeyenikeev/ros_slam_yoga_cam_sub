@@ -1,0 +1,8 @@
+﻿camera_publisher:
+  ros__parameters:
+    # Заполните значения после выполнения camera_calibration.
+    distortion_model: plumb_bob
+    distortion_coefficients: [0.0, 0.0, 0.0, 0.0, 0.0]
+    camera_matrix: [640.0, 0.0, 319.5, 0.0, 640.0, 179.5, 0.0, 0.0, 1.0]
+    rectification_matrix: [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]
+    projection_matrix: [640.0, 0.0, 319.5, 0.0, 0.0, 640.0, 179.5, 0.0, 0.0, 0.0, 1.0, 0.0]
