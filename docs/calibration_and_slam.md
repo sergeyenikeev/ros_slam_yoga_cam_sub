@@ -18,6 +18,7 @@
 - добавлен скрипт `scripts/run_camera_calibration.ps1`, который готовит publisher, проверяет наличие `camera_calibration` и формирует точную команду запуска;
 - добавлен скрипт `scripts/import_camera_calibration.ps1`, который копирует YAML в пакет и проверяет его через `camera_calibration_inspector`;
 - добавлен узел `camera_slam_preflight` и сценарий `scripts/run_slam_preflight.ps1` для проверки фактического FPS и согласованности `Image`/`CameraInfo`;
+- добавлен узел `camera_feature_monitor` и сценарий `scripts/run_feature_monitor.ps1` для оценки feature-насыщенности, резкости и яркости потока;
 - добавлены сценарии `run_dataset_record.ps1` и `run_dataset_playback.ps1` для записи и повторного воспроизведения SLAM-ready bag-датасета;
 - добавлен launch `static_camera_tf.launch.py` и связка `camera_slam_ready.launch.py` для публикации стандартного optical TF;
 - `CameraInfo` публикуется синхронно с каждым кадром и имеет тот же `frame_id`, что и изображение.
@@ -115,6 +116,12 @@ Preflight проверит:
 .\scripts\run_dataset_report.ps1 -BagPath C:\путь\к\bag
 ```
 
+А если нужно понять, хватает ли в кадре визуальных ориентиров для следующего monocular SLAM шага, сохраните ещё и отдельный feature-report:
+
+```powershell
+.\scripts\run_dataset_feature_report.ps1 -BagPath C:\путь\к\bag
+```
+
 ### 8. Запускать publisher с реальной калибровкой
 
 ```cmd
@@ -163,6 +170,19 @@ scripts\run_in_ros_env.cmd ros2 launch yoga_cam_sub static_camera_tf.launch.py
 - публикацию диагностического статуса.
 
 Часть этой диагностики уже покрывает `camera_slam_preflight`, который измеряет фактический FPS и разброс интервалов между кадрами.
+
+Дополнительно `camera_feature_monitor` оценивает:
+
+- сколько ORB-feature в среднем видно на кадре;
+- насколько эти feature распределены по площади изображения;
+- не слишком ли картинка размазана;
+- достаточно ли света для устойчивого трекинга.
+
+Для живой проверки это можно запускать так:
+
+```powershell
+.\scripts\run_feature_monitor.ps1 publisher_max_frames:=60 required_frames:=10
+```
 
 ### Выбор следующего SLAM-пакета
 

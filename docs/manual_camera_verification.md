@@ -133,7 +133,21 @@ scripts\run_in_ros_env.cmd ros2 run yoga_cam_sub camera_publisher --ros-args -p 
 - в summary виден `average_fps`;
 - прогон завершается сообщением `SLAM preflight завершён успешно`.
 
-## 12. Запись bag-датасета для повторной проверки
+## 12. Feature-проверка потока перед SLAM
+
+После preflight полезно убедиться, что сцена содержит достаточно визуальных ориентиров:
+
+```powershell
+.\scripts\run_feature_monitor.ps1 publisher_max_frames:=60 required_frames:=10
+```
+
+Ожидаемые признаки успеха:
+
+- появляются строки `Feature monitor получил кадр #...`;
+- в summary видны `average_keypoints`, `average_coverage`, `average_blur`;
+- прогон завершается сообщением `Feature monitor завершён успешно`.
+
+## 13. Запись bag-датасета для повторной проверки
 
 Если поток уже стабилен, можно записать короткий rosbag:
 
@@ -157,7 +171,13 @@ scripts\run_in_ros_env.cmd ros2 run yoga_cam_sub camera_publisher --ros-args -p 
 .\scripts\run_dataset_report.ps1 -BagPath C:\путь\к\bag
 ```
 
-## 13. Если камера не открывается
+Если нужен отдельный отчёт по visual-feature recorded bag, дополнительно выполните:
+
+```powershell
+.\scripts\run_dataset_feature_report.ps1 -BagPath C:\путь\к\bag
+```
+
+## 14. Если камера не открывается
 
 Попробуйте fallback на `CAP_ANY`:
 

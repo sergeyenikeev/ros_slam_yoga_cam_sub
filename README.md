@@ -7,7 +7,9 @@
 - реализован собственный узел `camera_publisher` на C++ с публикацией `sensor_msgs/msg/Image` и `sensor_msgs/msg/CameraInfo`;
 - реализован диагностический subscriber `image_counter` с параметрами `image_topic` и `max_frames`;
 - реализован узел `camera_slam_preflight`, который проверяет согласованность `Image`/`CameraInfo` и измеряет фактический FPS потока;
+- реализован узел `camera_feature_monitor`, который оценивает число ORB-feature, покрытие кадра, резкость и яркость потока;
 - добавлены сценарии записи и воспроизведения rosbag-датасета для повторяемых SLAM-прогонов без живой камеры;
+- добавлены offline-отчёты по dataset playback: отдельно для preflight и для feature-качества потока;
 - вынесена тестируемая логика подготовки кадров и `CameraInfo` в библиотеку `camera_utils`;
 - добавлены unit-тесты для валидации параметров, преобразования кадров, генерации `Image` и `CameraInfo`;
 - добавлены launch-файлы, smoke-тесты, сценарий полного прогона и скрипты сборки/диагностики;
@@ -20,24 +22,28 @@
 - `src/camera_publisher.cpp` — основной publisher камеры;
 - `src/image_counter.cpp` — subscriber для проверки потока изображений;
 - `src/camera_slam_preflight.cpp` — автоматическая пред-проверка потока перед интеграцией SLAM;
-- `src/camera_utils.cpp`, `src/stream_diagnostics.cpp`, `include/yoga_cam_sub/*.hpp` — тестируемая логика преобразования кадров, подготовки `CameraInfo` и анализа потока;
+- `src/camera_feature_monitor.cpp` — проверка визуальной насыщенности потока перед SLAM;
+- `src/camera_utils.cpp`, `src/stream_diagnostics.cpp`, `src/feature_diagnostics.cpp`, `include/yoga_cam_sub/*.hpp` — тестируемая логика преобразования кадров, подготовки `CameraInfo` и анализа потока;
 - `config/camera_publisher.params.yaml` — базовые параметры узлов;
 - `config/camera_calibration.template.yaml` — шаблон для реальной калибровки;
 - `config/camera_calibration.sample.yaml` — пример стандартного YAML-файла от `camera_calibration`;
 - `launch/camera_publisher.launch.py` — запуск только publisher;
 - `launch/camera_pipeline.launch.py` — совместный запуск publisher и subscriber;
 - `launch/camera_slam_preflight.launch.py` — запуск publisher и preflight-проверки в одном сценарии;
+- `launch/camera_feature_monitor.launch.py` — запуск publisher и feature-мониторинга в одном сценарии;
 - `launch/static_camera_tf.launch.py` — публикация статического TF между `camera_link` и `camera_optical_frame`;
 - `launch/camera_slam_ready.launch.py` — связка publisher + статический TF для следующего этапа SLAM;
 - `scripts/full_validation.ps1` — единый автоматический прогон всех доступных проверок;
 - `scripts/run_dataset_record.ps1` — запись SLAM-ready rosbag-датасета с изображением, `CameraInfo` и `tf_static`;
 - `scripts/run_dataset_playback.ps1` — воспроизведение записанного bag-файла с optional subscriber/preflight;
 - `scripts/run_dataset_report.ps1` — построение JSON-отчёта по recorded bag и offline preflight;
+- `scripts/run_dataset_feature_report.ps1` — построение JSON-отчёта по feature-качеству recorded bag;
 - `scripts/update_dataset_catalog.ps1` — пересборка общего каталога датасетов из `artifacts/datasets/`;
 - `scripts/dataset_bag_smoke_test.ps1` — автоматическая запись и проверка короткого bag-датасета;
 - `scripts/run_camera_calibration.ps1` — подготовка и запуск калибровки камеры;
 - `scripts/import_camera_calibration.ps1` — импорт и валидация YAML-калибровки;
 - `scripts/run_slam_preflight.ps1` — запуск автоматической preflight-проверки потока камеры;
+- `scripts/run_feature_monitor.ps1` — запуск автоматической оценки feature-качества живого потока;
 - `scripts/slam_preflight_smoke_test.ps1` — smoke-тест preflight-сценария на реальной камере;
 - `scripts/tf_smoke_test.ps1` — автоматическая проверка публикации статического TF;
 - `scripts/run_slam_ready_pipeline.ps1` — запуск SLAM-ready конфигурации камеры;
@@ -83,7 +89,7 @@ scripts\build_workspace.cmd
 .\scripts\full_validation.ps1
 ```
 
-Сценарий последовательно выполняет диагностику окружения, сборку, unit/lint тесты, smoke-тест subscriber, проверку YAML-калибровки, проверку реальных топиков, SLAM preflight smoke-тест, dataset bag smoke-тест и launch smoke-тест.
+Сценарий последовательно выполняет диагностику окружения, сборку, unit/lint тесты, smoke-тест subscriber, проверку YAML-калибровки, проверку реальных топиков, SLAM preflight smoke-тест, dataset bag smoke-тест с preflight/report/feature-report и launch smoke-тест.
 
 ### 6. Подготовка калибровки
 
@@ -147,7 +153,23 @@ scripts\build_workspace.cmd
 
 Скрипт прогоняет offline playback/preflight и сохраняет JSON-отчёт в `reports/` рядом с датасетом.
 
-### 13. Обновление общего каталога датасетов
+### 13. Построение feature-отчёта по датасету
+
+```powershell
+.\scripts\run_dataset_feature_report.ps1 -BagPath C:\dev\ros2_ws\src\yoga_cam_sub\artifacts\datasets\camera_dataset_YYYYMMDD_HHMMSS\bag
+```
+
+Скрипт воспроизводит bag через `camera_feature_monitor` и сохраняет отдельный JSON-отчёт по качеству визуальных ориентиров: числу ORB-feature, покрытию кадра, резкости и яркости.
+
+### 14. Запуск feature-мониторинга на живой камере
+
+```powershell
+.\scripts\run_feature_monitor.ps1 publisher_max_frames:=60 required_frames:=10
+```
+
+Этот сценарий полезен, когда нужно быстро понять, подходит ли текущая сцена и освещение для следующего monocular SLAM-прогона.
+
+### 15. Обновление общего каталога датасетов
 
 ```powershell
 .\scripts\update_dataset_catalog.ps1
@@ -234,5 +256,5 @@ scripts\build_workspace.cmd
 - `docs/manual_camera_verification.md` — ручная проверка камеры и топиков;
 - `docs/calibration_and_slam.md` — переход к калибровке камеры и следующему шагу visual SLAM;
 - `docs/slam_preflight.md` — подробности по автоматической preflight-проверке потока;
-- `docs/dataset_capture.md` — запись и воспроизведение rosbag-датасетов для offline SLAM-проверок.
-- `docs/dataset_capture.md` — запись, каталогизация и отчётность по rosbag-датасетам для offline SLAM-проверок.
+- `docs/feature_monitor.md` — оценка visual-feature качества потока и интерпретация метрик;
+- `docs/dataset_capture.md` — запись, воспроизведение, каталогизация и отчётность по rosbag-датасетам для offline SLAM-проверок.

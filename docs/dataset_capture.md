@@ -62,7 +62,8 @@ Rosbag-датасет полезен в трёх сценариях:
 
 - просто воспроизводить bag;
 - одновременно поднимать `image_counter`;
-- одновременно поднимать `camera_slam_preflight`.
+- одновременно поднимать `camera_slam_preflight`;
+- одновременно поднимать `camera_feature_monitor`.
 
 ## Варианты воспроизведения
 
@@ -85,6 +86,12 @@ Rosbag-датасет полезен в трёх сценариях:
 .\scripts\run_dataset_playback.ps1 -BagPath C:\путь\к\bag -RunPreflight -Rate 2.0
 ```
 
+### 4. Проверить, достаточно ли visual-feature в recorded bag
+
+```powershell
+.\scripts\run_dataset_playback.ps1 -BagPath C:\путь\к\bag -RunFeatureMonitor -FeatureRequiredFrames 10
+```
+
 ## Автоматический smoke-тест
 
 ```powershell
@@ -98,7 +105,8 @@ Smoke-тест:
 3. проверяет наличие `dataset_manifest.json` и `dataset_catalog.json`;
 4. воспроизводит bag в `camera_slam_preflight`;
 5. строит итоговый JSON-report по датасету;
-6. завершает прогон ошибкой, если запись или воспроизведение не прошли.
+6. строит отдельный JSON-report по feature-качеству датасета;
+7. завершает прогон ошибкой, если запись или воспроизведение не прошли.
 
 ## Манифест датасета
 
@@ -128,6 +136,23 @@ Smoke-тест:
 ```
 
 Скрипт повторно воспроизводит bag, извлекает summary из `camera_slam_preflight` и записывает JSON-отчёт в каталог `reports/` рядом с датасетом.
+
+## Offline feature-report по датасету
+
+Если нужно отдельно оценить качество visual-feature для будущего SLAM, используйте:
+
+```powershell
+.\scripts\run_dataset_feature_report.ps1 -BagPath C:\путь\к\bag
+```
+
+Скрипт повторно воспроизводит bag, извлекает `Feature summary` из `camera_feature_monitor` и записывает JSON-отчёт в каталог `reports/` рядом с датасетом.
+
+В этом отчёте полезно смотреть на:
+
+- `average_keypoints` — среднее число ORB-feature на кадр;
+- `average_coverage` — насколько feature распределены по площади кадра;
+- `average_blur` — не слишком ли картинка смазана;
+- `average_brightness` и `average_contrast` — хватает ли света и текстуры.
 
 ## Что смотреть в результате
 

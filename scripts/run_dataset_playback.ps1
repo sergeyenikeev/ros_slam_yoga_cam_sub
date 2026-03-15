@@ -5,11 +5,22 @@ param(
   [double]$Rate = 1.0,
   [switch]$RunImageCounter,
   [switch]$RunPreflight,
+  [switch]$RunFeatureMonitor,
   [int]$StartupDelaySeconds = 2,
   [int]$CounterMaxFrames = 1,
   [int]$RequiredFrames = 10,
   [int]$MaxRuntimeSeconds = 15,
   [double]$MinFps = 1.0,
+  [int]$FeatureRequiredFrames = 20,
+  [int]$FeatureMaxRuntimeSeconds = 15,
+  [int]$FeatureLogEveryNFrames = 10,
+  [int]$FeatureMaxFeatures = 500,
+  [int]$FeatureGridRows = 4,
+  [int]$FeatureGridCols = 4,
+  [int]$MinAverageKeypoints = 150,
+  [double]$MinAverageGridCoverageRatio = 0.35,
+  [double]$MinAverageBlurScore = 80.0,
+  [double]$MinAverageBrightnessMean = 25.0,
   [string]$ImageTopic = '/camera/image_raw',
   [string]$CameraInfoTopic = '/camera/camera_info',
   [string]$ExpectedFrameId = 'camera_optical_frame'
@@ -30,8 +41,11 @@ if (-not (Test-Path (Join-Path $resolvedBagPath 'metadata.yaml'))) {
 if ($Rate -le 0.0) {
   throw 'Параметр Rate должен быть больше нуля.'
 }
-if (($RunImageCounter -or $RunPreflight) -and $StartupDelaySeconds -lt 0) {
+if (($RunImageCounter -or $RunPreflight -or $RunFeatureMonitor) -and $StartupDelaySeconds -lt 0) {
   throw 'Параметр StartupDelaySeconds не может быть отрицательным.'
+}
+if ((@(@($RunImageCounter, $RunPreflight, $RunFeatureMonitor) | Where-Object { $_ })).Count -gt 1) {
+  throw 'Можно запускать только один режим подписчика: image_counter, preflight или feature_monitor.'
 }
 
 $playArguments = @(
@@ -71,8 +85,8 @@ function Stop-LingeringProjectProcesses {
   param([string]$Reason)
 
   $targets = Get-CimInstance Win32_Process | Where-Object {
-    $_.Name -match 'camera_publisher|static_transform_publisher|image_counter|camera_slam_preflight|ros2|python' -and
-    $_.CommandLine -match 'yoga_cam_sub|camera_slam_ready|camera_publisher|camera_slam_preflight|image_counter|ros2 bag record|ros2 bag play|artifacts/datasets|dataset_playback'
+    $_.Name -match 'camera_publisher|static_transform_publisher|image_counter|camera_slam_preflight|camera_feature_monitor|ros2|python' -and
+    $_.CommandLine -match 'yoga_cam_sub|camera_slam_ready|camera_publisher|camera_slam_preflight|camera_feature_monitor|image_counter|ros2 bag record|ros2 bag play|artifacts/datasets|dataset_playback'
   }
 
   if (-not $targets) {
@@ -188,6 +202,28 @@ try {
       -RosArguments $subscriberArguments `
       -StdoutPath $subscriberStdout `
       -StderrPath $subscriberStderr
+  } elseif ($RunFeatureMonitor) {
+    $subscriberName = 'camera_feature_monitor'
+    $subscriberArguments = @(
+      'ros2', 'run', 'yoga_cam_sub', 'camera_feature_monitor',
+      '--ros-args',
+      '-p', "image_topic:=$ImageTopic",
+      '-p', "required_frames:=$FeatureRequiredFrames",
+      '-p', "max_runtime_seconds:=$FeatureMaxRuntimeSeconds",
+      '-p', "log_every_n_frames:=$FeatureLogEveryNFrames",
+      '-p', "max_features:=$FeatureMaxFeatures",
+      '-p', "grid_rows:=$FeatureGridRows",
+      '-p', "grid_cols:=$FeatureGridCols",
+      '-p', "min_average_keypoints:=$MinAverageKeypoints",
+      '-p', "min_average_grid_coverage_ratio:=$($MinAverageGridCoverageRatio.ToString('0.0############', [System.Globalization.CultureInfo]::InvariantCulture))",
+      '-p', "min_average_blur_score:=$($MinAverageBlurScore.ToString('0.0############', [System.Globalization.CultureInfo]::InvariantCulture))",
+      '-p', "min_average_brightness_mean:=$($MinAverageBrightnessMean.ToString('0.0############', [System.Globalization.CultureInfo]::InvariantCulture))"
+    )
+
+    $subscriberProcess = Start-RosProcess `
+      -RosArguments $subscriberArguments `
+      -StdoutPath $subscriberStdout `
+      -StderrPath $subscriberStderr
   }
 
   if ($subscriberProcess) {
@@ -196,6 +232,8 @@ try {
     } elseif ($RunImageCounter) {
       'Узел image_counter запущен.'
     } else {
+      # Для feature-монитора на Windows логи старта могут буферизоваться дольше,
+      # чем нам нужно ждать перед `ros2 bag play`, поэтому опираемся на StartupDelaySeconds.
       ''
     }
     if ($readyPattern) {
@@ -219,7 +257,13 @@ try {
   }
 
   if ($subscriberProcess) {
-    $waitSeconds = if ($RunPreflight) { $MaxRuntimeSeconds + 5 } else { 10 }
+    $waitSeconds = if ($RunPreflight) {
+      $MaxRuntimeSeconds + 5
+    } elseif ($RunFeatureMonitor) {
+      $FeatureMaxRuntimeSeconds + 5
+    } else {
+      10
+    }
     if (-not $subscriberProcess.WaitForExit($waitSeconds * 1000)) {
       Stop-Process -Id $subscriberProcess.Id -Force
       throw "$subscriberName не завершился после окончания bagplay за $waitSeconds секунд."
@@ -247,6 +291,8 @@ try {
     $subscriberLogText = $subscriberStdoutText + "`n" + $stderrContent
     $successPattern = if ($RunPreflight) {
       'SLAM preflight завершён успешно'
+    } elseif ($RunFeatureMonitor) {
+      'Feature monitor завершён успешно'
     } elseif ($RunImageCounter) {
       'Достигнут лимит max_frames='
     } else {

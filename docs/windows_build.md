@@ -104,6 +104,12 @@ colcon build --merge-install --packages-select yoga_cam_sub --cmake-clean-cache 
 .\scripts\slam_preflight_smoke_test.ps1
 ```
 
+Отдельная feature-проверка потока камеры перед SLAM:
+
+```powershell
+.\scripts\run_feature_monitor.ps1 publisher_max_frames:=60 required_frames:=10
+```
+
 Отдельная проверка записи и воспроизведения bag-датасета:
 
 ```powershell
@@ -187,6 +193,12 @@ C:\pixi_ws\.pixi\envs\default\Library\cmake\OpenCVConfig.cmake
 
 ```powershell
 .\scripts\run_dataset_report.ps1 -BagPath C:\путь\к\bag
+```
+
+Если нужен отдельный отчёт по visual-feature recorded bag, используйте:
+
+```powershell
+.\scripts\run_dataset_feature_report.ps1 -BagPath C:\путь\к\bag
 ```
 
 ### В консоли виден warning про RTI Connext DDS

@@ -17,6 +17,7 @@ $bagPath = Join-Path $datasetPath 'bag'
 $manifestPath = Join-Path $datasetPath 'dataset_manifest.json'
 $catalogPath = Join-Path $datasetRoot 'dataset_catalog.json'
 $reportPath = Join-Path $datasetPath 'reports\smoke_preflight_report.json'
+$featureReportPath = Join-Path $datasetPath 'reports\smoke_feature_report.json'
 
 Write-Host '[ИНФО] Запускаем smoke-тест записи и воспроизведения датасета.'
 
@@ -55,10 +56,24 @@ if (-not (Test-Path $reportPath)) {
   throw "Smoke-тест не нашёл итоговый report-файл в $reportPath"
 }
 
+& (Join-Path $PSScriptRoot 'run_dataset_feature_report.ps1') `
+  -BagPath $bagPath `
+  -OutputFile $featureReportPath `
+  -RequiredFrames 10 `
+  -MaxRuntimeSeconds 15 `
+  -MinAverageKeypoints 60 `
+  -MinAverageGridCoverageRatio 0.20 `
+  -MinAverageBlurScore 20.0 `
+  -MinAverageBrightnessMean 15.0
+if (-not (Test-Path $featureReportPath)) {
+  throw "Smoke-тест не нашёл итоговый feature report-файл в $featureReportPath"
+}
+
 Write-Host '[ИНФО] Smoke-тест dataset bag завершён успешно.'
 Write-Host "[ИНФО] Проверенный датасет: $datasetPath"
 Write-Host "[ИНФО] Проверенный bag: $bagPath"
 Write-Host "[ИНФО] Проверенный manifest: $manifestPath"
 Write-Host "[ИНФО] Проверенный report: $reportPath"
+Write-Host "[ИНФО] Проверенный feature report: $featureReportPath"
 
 
