@@ -10,6 +10,7 @@
 - реализован узел `camera_feature_monitor`, который оценивает число ORB-feature, покрытие кадра, резкость и яркость потока;
 - добавлены сценарии записи и воспроизведения rosbag-датасета для повторяемых SLAM-прогонов без живой камеры;
 - добавлены offline-отчёты по dataset playback: отдельно для preflight и для feature-качества потока;
+- добавлен пакет эксперимента monocular SLAM, который собирает отчёты и manifest по bag в один reproducible каталог;
 - вынесена тестируемая логика подготовки кадров и `CameraInfo` в библиотеку `camera_utils`;
 - добавлены unit-тесты для валидации параметров, преобразования кадров, генерации `Image` и `CameraInfo`;
 - добавлены launch-файлы, smoke-тесты, сценарий полного прогона и скрипты сборки/диагностики;
@@ -38,6 +39,8 @@
 - `scripts/run_dataset_playback.ps1` — воспроизведение записанного bag-файла с optional subscriber/preflight;
 - `scripts/run_dataset_report.ps1` — построение JSON-отчёта по recorded bag и offline preflight;
 - `scripts/run_dataset_feature_report.ps1` — построение JSON-отчёта по feature-качеству recorded bag;
+- `scripts/run_slam_experiment.ps1` — сборка полного пакета эксперимента monocular SLAM по bag;
+- `scripts/slam_experiment_smoke_test.ps1` — smoke-тест experiment workflow;
 - `scripts/update_dataset_catalog.ps1` — пересборка общего каталога датасетов из `artifacts/datasets/`;
 - `scripts/dataset_bag_smoke_test.ps1` — автоматическая запись и проверка короткого bag-датасета;
 - `scripts/run_camera_calibration.ps1` — подготовка и запуск калибровки камеры;
@@ -177,6 +180,14 @@ scripts\build_workspace.cmd
 
 Каталог помогает быстро увидеть, какие bag уже записаны, с каким storage, разрешением и сколько в них кадров.
 
+### 16. Подготовка полного пакета эксперимента monocular SLAM
+
+```powershell
+.\scripts\run_slam_experiment.ps1 -BagPath C:\dev\ros2_ws\src\yoga_cam_sub\artifacts\datasets\camera_dataset_YYYYMMDD_HHMMSS\bag
+```
+
+Скрипт собирает в один каталог `experiment_manifest.json`, `experiment_summary.md`, preflight-report и feature-report. Это база для следующего шага — подключения реального SLAM backend.
+
 ## Важные параметры `camera_publisher`
 
 - `device_index` — индекс камеры OpenCV;
@@ -257,4 +268,7 @@ scripts\build_workspace.cmd
 - `docs/calibration_and_slam.md` — переход к калибровке камеры и следующему шагу visual SLAM;
 - `docs/slam_preflight.md` — подробности по автоматической preflight-проверке потока;
 - `docs/feature_monitor.md` — оценка visual-feature качества потока и интерпретация метрик;
+- `docs/slam_experiment_workflow.md` — как собирать и хранить reproducible experiment packets для SLAM;
+- `docs/codebase_overview.md` — обзор ключевых файлов и архитектуры пакета;
+- `docs/remaining_work_plan.md` — подробный roadmap оставшихся задач;
 - `docs/dataset_capture.md` — запись, воспроизведение, каталогизация и отчётность по rosbag-датасетам для offline SLAM-проверок.
