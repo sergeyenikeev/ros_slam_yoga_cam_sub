@@ -297,6 +297,26 @@
 
 Это следующий шаг от "у нас есть bag" к "у нас есть воспроизводимый SLAM experiment packet".
 
+### `scripts/run_slam_backend.ps1`
+
+Запускает внешний backend поверх уже созданного experiment packet.
+
+Что делает:
+
+- читает `experiment_manifest.json`;
+- резолвит шаблонные пути и аргументы backend;
+- запускает внешний процесс с timeout;
+- сохраняет `stdout/stderr` и backend_result;
+- обновляет manifest, summary и общий каталог экспериментов.
+
+Это основной мост между подготовленным bag и настоящим monocular SLAM backend.
+
+### `scripts/mock_slam_backend.ps1`
+
+Служебный mock backend для smoke-тестов.
+
+Он не делает реальный SLAM, а только создаёт trajectory/map/runtime-артефакты, чтобы проверить orchestration, не требуя установленного внешнего backend.
+
 ### `scripts/slam_experiment_utils.ps1`
 
 Служебная библиотека experiment workflow.
@@ -305,6 +325,8 @@
 
 - резолвит `experiment_manifest.json` по пути к каталогу или файлу;
 - строит общий каталог экспериментов;
+- генерирует Markdown/CSV-таблицы по каталогу экспериментов;
+- умеет пересобирать summary конкретного experiment packet;
 - готовит comparison-object для baseline/candidate;
 - форматирует значения ручной оценки backend.
 

@@ -12,6 +12,7 @@
 - добавлены offline-отчёты по dataset playback: отдельно для preflight и для feature-качества потока;
 - добавлен пакет эксперимента monocular SLAM, который собирает отчёты и manifest по bag в один reproducible каталог;
 - добавлен реестр экспериментов monocular SLAM: каталог experiment packet, offline-сравнение двух прогонов и шаблоны ручной оценки backend;
+- добавлен backend-agnostic runner для внешнего SLAM backend с сохранением trajectory/map/runtime-артефактов в experiment packet;
 - вынесена тестируемая логика подготовки кадров и `CameraInfo` в библиотеку `camera_utils`;
 - добавлены unit-тесты для валидации параметров, преобразования кадров, генерации `Image` и `CameraInfo`;
 - добавлены launch-файлы, smoke-тесты, сценарий полного прогона и скрипты сборки/диагностики;
@@ -29,6 +30,7 @@
 - `config/camera_publisher.params.yaml` — базовые параметры узлов;
 - `config/camera_calibration.template.yaml` — шаблон для реальной калибровки;
 - `config/camera_calibration.sample.yaml` — пример стандартного YAML-файла от `camera_calibration`;
+- `config/slam_backend.mock.template.json` — шаблон mock-конфигурации для проверки backend runner;
 - `launch/camera_publisher.launch.py` — запуск только publisher;
 - `launch/camera_pipeline.launch.py` — совместный запуск publisher и subscriber;
 - `launch/camera_slam_preflight.launch.py` — запуск publisher и preflight-проверки в одном сценарии;
@@ -44,6 +46,9 @@
 - `scripts/run_slam_experiment.ps1` — сборка полного пакета эксперимента monocular SLAM по bag;
 - `scripts/slam_experiment_smoke_test.ps1` — smoke-тест experiment workflow;
 - `scripts/compare_slam_experiments.ps1` — offline-сравнение двух experiment packet по ключевым метрикам;
+- `scripts/run_slam_backend.ps1` — запуск внешнего SLAM backend поверх готового experiment packet;
+- `scripts/mock_slam_backend.ps1` — mock-backend для smoke-проверки orchestration без реального SLAM;
+- `scripts/slam_backend_runner_smoke_test.ps1` — smoke-тест backend runner;
 - `scripts/update_slam_experiment_catalog.ps1` — пересборка сводного каталога experiment packet;
 - `scripts/slam_experiment_compare_smoke_test.ps1` — smoke-тест сравнения двух SLAM-экспериментов;
 - `scripts/update_dataset_catalog.ps1` — пересборка общего каталога датасетов из `artifacts/datasets/`;
@@ -56,6 +61,7 @@
 - `scripts/tf_smoke_test.ps1` — автоматическая проверка публикации статического TF;
 - `scripts/run_slam_ready_pipeline.ps1` — запуск SLAM-ready конфигурации камеры;
 - `docs/` — подробная документация по сборке, ручной проверке и подготовке к SLAM.
+- `docs/slam_backend_runner.md` — отдельное описание интеграции внешнего backend в experiment workflow.
 
 ## Быстрый старт
 
@@ -98,7 +104,7 @@ scripts\build_workspace.cmd
 ```
 
 Сценарий последовательно выполняет диагностику окружения, сборку, unit/lint тесты, smoke-тест subscriber, проверку YAML-калибровки, проверку реальных топиков, SLAM preflight smoke-тест, dataset bag smoke-тест с preflight/report/feature-report и launch smoke-тест.
-Дополнительно он проверяет reproducible experiment workflow: сборку experiment packet и offline-сравнение двух SLAM-экспериментов.
+Дополнительно он проверяет reproducible experiment workflow: сборку experiment packet, запуск mock backend runner и offline-сравнение двух SLAM-экспериментов.
 
 ### 6. Подготовка калибровки
 
@@ -211,6 +217,24 @@ scripts\build_workspace.cmd
 ```
 
 Каталог помогает быстро увидеть список experiment packet, их `ready_for_slam`, средний FPS, среднее число feature и ручную оценку backend.
+
+### 19. Запуск внешнего backend поверх experiment packet
+
+```powershell
+.\scripts\run_slam_backend.ps1 `
+  -ExperimentPath C:\dev\ros2_ws\src\yoga_cam_sub\artifacts\slam_experiments\my_experiment `
+  -ConfigFile config/slam_backend.mock.template.json
+```
+
+Скрипт запускает внешний процесс, сохраняет `stdout/stderr`, проверяет выходные артефакты и обновляет `experiment_manifest.json`, `experiment_summary.md` и каталог экспериментов.
+
+### 20. Smoke-тест backend runner
+
+```powershell
+.\scripts\slam_backend_runner_smoke_test.ps1
+```
+
+Он использует mock-backend и подтверждает, что experiment registry умеет хранить не только входные отчёты, но и результат запуска backend.
 
 ## Важные параметры `camera_publisher`
 

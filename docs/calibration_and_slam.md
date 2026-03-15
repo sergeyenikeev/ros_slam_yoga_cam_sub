@@ -138,6 +138,14 @@ Preflight проверит:
 
 Так мы заранее увидим, нет ли деградации входных метрик, ещё до анализа trajectory и map output.
 
+Когда появится конкретный backend, следующий шаг можно автоматизировать через:
+
+```powershell
+.\scripts\run_slam_backend.ps1 -ExperimentPath C:\путь\к\experiment -ConfigFile config/slam_backend.mock.template.json
+```
+
+В текущем репозитории этот слой уже подготовлен и проверяется через mock backend без требования реального SLAM-пакета в underlay.
+
 ### 8. Запускать publisher с реальной калибровкой
 
 ```cmd

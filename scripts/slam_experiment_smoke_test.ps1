@@ -23,6 +23,9 @@ $manifestPath = Join-Path $experimentRoot 'experiment_manifest.json'
 $summaryPath = Join-Path $experimentRoot 'experiment_summary.md'
 $preflightReportPath = Join-Path $experimentRoot 'reports\preflight_report.json'
 $featureReportPath = Join-Path $experimentRoot 'reports\feature_report.json'
+$catalogJsonPath = Join-Path $packageRoot 'artifacts\slam_experiments\slam_experiment_catalog.json'
+$catalogMarkdownPath = Join-Path $packageRoot 'artifacts\slam_experiments\slam_experiment_catalog.md'
+$catalogCsvPath = Join-Path $packageRoot 'artifacts\slam_experiments\slam_experiment_catalog.csv'
 
 Write-Host '[ИНФО] Запускаем smoke-тест пакета эксперимента monocular SLAM.'
 & (Join-Path $PSScriptRoot 'run_slam_experiment.ps1') `
@@ -30,7 +33,7 @@ Write-Host '[ИНФО] Запускаем smoke-тест пакета экспе
   -ExperimentName $experimentName `
   -ConfigFile 'config/slam_experiment.template.json'
 
-foreach ($path in @($manifestPath, $summaryPath, $preflightReportPath, $featureReportPath)) {
+foreach ($path in @($manifestPath, $summaryPath, $preflightReportPath, $featureReportPath, $catalogJsonPath, $catalogMarkdownPath, $catalogCsvPath)) {
   if (-not (Test-Path $path)) {
     throw "Smoke-тест не нашёл ожидаемый файл: $path"
   }

@@ -177,6 +177,12 @@ Smoke-тест:
 
 Это удобно как точка входа для будущего реального SLAM backend и сравнения нескольких прогонов на одном bag.
 
+Если experiment packet уже собран, дальше можно запускать внешний backend отдельно:
+
+```powershell
+.\scripts\run_slam_backend.ps1 -ExperimentPath C:\путь\к\experiment -ConfigFile config/slam_backend.mock.template.json
+```
+
 ## Что смотреть в результате
 
 После записи проверьте:

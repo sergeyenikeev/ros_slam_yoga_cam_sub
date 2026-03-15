@@ -42,5 +42,18 @@
     "map_path": "",
     "runtime_log_path": "",
     "result_notes": ""
+  },
+  "backend_runner": {
+    "auto_run": false,
+    "backend_name": "",
+    "command": "",
+    "arguments": [],
+    "working_directory": "{experiment_root}",
+    "timeout_seconds": 0,
+    "trajectory_path": "",
+    "map_path": "",
+    "runtime_log_path": "",
+    "result_notes": "",
+    "allow_failure": false
   }
 }

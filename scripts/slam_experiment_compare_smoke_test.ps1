@@ -9,6 +9,18 @@ $ErrorActionPreference = 'Stop'
 $packageRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $experimentsRoot = Join-Path $packageRoot 'artifacts\slam_experiments'
 
+function Get-ValidExperimentDirectories {
+  param([string]$RootPath)
+
+  if (-not (Test-Path $RootPath)) {
+    return @()
+  }
+
+  return @(Get-ChildItem -Path $RootPath -Directory |
+      Where-Object { Test-Path (Join-Path $_.FullName 'experiment_manifest.json') } |
+      Sort-Object LastWriteTime -Descending)
+}
+
 if ([string]::IsNullOrWhiteSpace($BagPath)) {
   $latestDataset = Get-ChildItem -Path (Join-Path $packageRoot 'artifacts\datasets') -Directory |
     Sort-Object LastWriteTime -Descending |
@@ -19,10 +31,7 @@ if ([string]::IsNullOrWhiteSpace($BagPath)) {
   $BagPath = Join-Path $latestDataset.FullName 'bag'
 }
 
-$existingExperiments = @()
-if (Test-Path $experimentsRoot) {
-  $existingExperiments = @(Get-ChildItem -Path $experimentsRoot -Directory | Sort-Object LastWriteTime -Descending)
-}
+$existingExperiments = Get-ValidExperimentDirectories -RootPath $experimentsRoot
 
 # Для надёжного smoke-теста нам нужно минимум два experiment manifest.
 # Если их ещё нет, создаём недостающие пакеты поверх одного и того же bag.
@@ -36,9 +45,7 @@ for ($index = 0; $index -lt $neededExperiments; $index++) {
   Start-Sleep -Seconds 1
 }
 
-$experimentsToCompare = @(Get-ChildItem -Path $experimentsRoot -Directory |
-  Sort-Object LastWriteTime -Descending |
-  Select-Object -First 2)
+$experimentsToCompare = @(Get-ValidExperimentDirectories -RootPath $experimentsRoot | Select-Object -First 2)
 if ($experimentsToCompare.Count -lt 2) {
   throw 'Smoke-тест сравнения экспериментов не нашёл два доступных эксперимента.'
 }
@@ -63,6 +70,9 @@ foreach ($path in @($comparisonJsonPath, $comparisonSummaryPath)) {
 $comparison = Get-Content -Path $comparisonJsonPath -Raw -Encoding UTF8 | ConvertFrom-Json
 if (-not $comparison.metrics.average_fps) {
   throw 'Smoke-тест сравнения экспериментов не нашёл average_fps в comparison.json.'
+}
+if (-not $comparison.backend) {
+  throw 'Smoke-тест сравнения экспериментов не нашёл секцию backend в comparison.json.'
 }
 
 Write-Host '[ИНФО] Smoke-тест сравнения экспериментов завершён успешно.'

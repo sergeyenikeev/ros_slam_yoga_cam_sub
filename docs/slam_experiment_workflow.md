@@ -18,6 +18,8 @@
 - шаблонные поля для ручной оценки backend;
 - автоматическое обновление общего каталога экспериментов.
 
+Теперь следующий слой тоже уже подготовлен: отдельный backend runner умеет запускать внешний SLAM backend поверх готового experiment packet.
+
 Это делает дальнейшую интеграцию реального SLAM backend воспроизводимой.
 
 ## Быстрый запуск
@@ -104,6 +106,25 @@ artifacts/slam_experiments/slam_experiment_<timestamp>/
 .\scripts\slam_experiment_compare_smoke_test.ps1
 ```
 
+## Запуск внешнего backend поверх эксперимента
+
+Если experiment packet уже собран, можно отдельно запустить backend:
+
+```powershell
+.\scripts\run_slam_backend.ps1 `
+  -ExperimentPath C:\путь\к\experiment `
+  -ConfigFile config/slam_backend.mock.template.json
+```
+
+После запуска обновляются:
+
+- `backend_artifacts/backend_stdout.log`
+- `backend_artifacts/backend_stderr.log`
+- `backend_artifacts/backend_result.json`
+- `experiment_manifest.json`
+- `experiment_summary.md`
+- общий реестр экспериментов в JSON/Markdown/CSV
+
 ## Как это использовать дальше
 
 Следующий практический шаг — расширить experiment packet результатами реального backend:
@@ -113,5 +134,11 @@ artifacts/slam_experiments/slam_experiment_<timestamp>/
 - runtime log;
 - субъективные заметки по качеству трекинга;
 - флаг `tracking_lost`.
+
+Часть этого шага уже закрыта:
+
+- есть `run_slam_backend.ps1` для запуска внешнего backend;
+- есть `mock_slam_backend.ps1` и smoke-проверка orchestration;
+- каталог экспериментов теперь экспортируется не только в JSON, но и в Markdown/CSV.
 
 То есть этот workflow уже можно считать каркасом для полноценного `SLAM experiment registry`.

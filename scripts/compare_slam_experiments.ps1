@@ -82,6 +82,15 @@ $summaryLines += @(
   "- baseline_map_quality: $($comparison.manual_assessment.baseline_map_quality)",
   "- candidate_map_quality: $($comparison.manual_assessment.candidate_map_quality)",
   '',
+  '## Выполнение backend',
+  '',
+  "- baseline_backend_success: $($comparison.backend.baseline_success)",
+  "- candidate_backend_success: $($comparison.backend.candidate_success)",
+  "- baseline_trajectory_found: $($comparison.backend.baseline_trajectory_found)",
+  "- candidate_trajectory_found: $($comparison.backend.candidate_trajectory_found)",
+  "- baseline_map_found: $($comparison.backend.baseline_map_found)",
+  "- candidate_map_found: $($comparison.backend.candidate_map_found)",
+  '',
   '## Выводы',
   ''
 )

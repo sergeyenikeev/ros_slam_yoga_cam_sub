@@ -1,0 +1,25 @@
+﻿{
+  "backend_runner": {
+    "backend_name": "mock_monocular_backend",
+    "command": "scripts/mock_slam_backend.ps1",
+    "arguments": [
+      "-BagPath",
+      "{bag_root}",
+      "-ExperimentName",
+      "{experiment_name}",
+      "-TrajectoryPath",
+      "{trajectory_path}",
+      "-MapPath",
+      "{map_path}",
+      "-RuntimeLogPath",
+      "{runtime_log_path}"
+    ],
+    "working_directory": "{experiment_root}",
+    "timeout_seconds": 30,
+    "trajectory_path": "backend_artifacts/mock_trajectory.csv",
+    "map_path": "backend_artifacts/mock_map.json",
+    "runtime_log_path": "backend_artifacts/mock_runtime.log",
+    "result_notes": "Smoke-конфигурация для проверки backend runner.",
+    "allow_failure": false
+  }
+}

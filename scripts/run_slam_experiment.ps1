@@ -7,6 +7,7 @@ param(
   [string]$ConfigFile = '',
   [string]$SlamBackend = '',
   [string]$Notes = '',
+  [switch]$RunBackend,
   [switch]$SkipPreflightReport,
   [switch]$SkipFeatureReport
 )
@@ -121,6 +122,7 @@ $backendTrajectoryPath = [string](Get-ConfigValue -Config $config -PathSegments 
 $backendMapPath = [string](Get-ConfigValue -Config $config -PathSegments @('backend_result', 'map_path') -DefaultValue '')
 $backendRuntimeLogPath = [string](Get-ConfigValue -Config $config -PathSegments @('backend_result', 'runtime_log_path') -DefaultValue '')
 $backendResultNotes = [string](Get-ConfigValue -Config $config -PathSegments @('backend_result', 'result_notes') -DefaultValue '')
+$shouldRunBackend = $RunBackend.IsPresent -or [bool](Get-ConfigValue -Config $config -PathSegments @('backend_runner', 'auto_run') -DefaultValue $false)
 
 $preflightReportPath = Join-Path $reportsRoot 'preflight_report.json'
 $featureReportPath = Join-Path $reportsRoot 'feature_report.json'
@@ -231,52 +233,29 @@ if ($featureReport) {
   $experimentManifest['feature_monitor'] = $featureReport.feature_monitor
 }
 
-Set-Content -Path $manifestOutputPath -Value ($experimentManifest | ConvertTo-Json -Depth 10) -Encoding UTF8
-
-$summaryLines = @(
-  '# Пакет эксперимента monocular SLAM',
-  '',
-  "- experiment_name: $ExperimentName",
-  "- dataset_name: $($experimentManifest.dataset_name)",
-  "- slam_backend: $effectiveSlamBackend",
-  "- ready_for_slam: $readyForSlam",
-  "- bag_root: $resolvedBagPath",
-  "- preflight_report: $(if ($preflightReport) { $preflightReportPath } else { '<пропущен>' })",
-  "- feature_report: $(if ($featureReport) { $featureReportPath } else { '<пропущен>' })"
-)
-if (-not [string]::IsNullOrWhiteSpace($effectiveNotes)) {
-  $summaryLines += @('', '## Заметки', '', $effectiveNotes)
-}
-$summaryLines += @(
-  '',
-  '## Поля для фиксации результата backend',
-  '',
-  "- tracking_lost: $(Get-ExperimentTrackingLostLabel -Value $manualTrackingLost)",
-  "- map_quality: $manualMapQuality",
-  "- trajectory_path: $(if ([string]::IsNullOrWhiteSpace($backendTrajectoryPath)) { '<не заполнено>' } else { $backendTrajectoryPath })",
-  "- map_path: $(if ([string]::IsNullOrWhiteSpace($backendMapPath)) { '<не заполнено>' } else { $backendMapPath })",
-  "- runtime_log_path: $(if ([string]::IsNullOrWhiteSpace($backendRuntimeLogPath)) { '<не заполнено>' } else { $backendRuntimeLogPath })"
-)
-if (-not [string]::IsNullOrWhiteSpace($manualSubjectiveNotes)) {
-  $summaryLines += @('', '## Субъективные заметки по backend', '', $manualSubjectiveNotes)
-}
-if (-not [string]::IsNullOrWhiteSpace($backendResultNotes)) {
-  $summaryLines += @('', '## Заметки по артефактам backend', '', $backendResultNotes)
-}
-$summaryLines += @('', '## Следующие шаги', '')
-if ($readyForSlam) {
-  $summaryLines += '- Пакет эксперимента готов: можно подключать внешний monocular SLAM backend и писать его output в этот же каталог.'
-} else {
-  $summaryLines += '- Пакет эксперимента пока не готов к SLAM: сначала разберите preflight/feature-отчёты и улучшите поток.'
-}
-Set-Content -Path $summaryOutputPath -Value ($summaryLines -join "`r`n") -Encoding UTF8
+Save-SlamExperimentManifest -Manifest $experimentManifest -ManifestPath $manifestOutputPath
+Write-SlamExperimentSummary -Manifest $experimentManifest -SummaryPath $summaryOutputPath
 
 # После каждой сборки пакета эксперимента обновляем сводный каталог, чтобы
 # следующий шаг автоматизации сразу видел все доступные SLAM-прогоны.
 $catalog = Update-SlamExperimentCatalogFile -ExperimentsRoot $OutputRoot
 $catalogPath = Get-SlamExperimentCatalogPath -ExperimentsRoot $OutputRoot
+$catalogMarkdownPath = Get-SlamExperimentCatalogMarkdownPath -ExperimentsRoot $OutputRoot
+$catalogCsvPath = Get-SlamExperimentCatalogCsvPath -ExperimentsRoot $OutputRoot
 
 Write-Host '[ИНФО] Пакет эксперимента monocular SLAM успешно подготовлен.'
 Write-Host "[ИНФО] manifest_path=$manifestOutputPath"
 Write-Host "[ИНФО] summary_path=$summaryOutputPath"
 Write-Host "[ИНФО] catalog_path=$catalogPath"
+Write-Host "[ИНФО] catalog_markdown_path=$catalogMarkdownPath"
+Write-Host "[ИНФО] catalog_csv_path=$catalogCsvPath"
+
+if ($shouldRunBackend) {
+  Write-Host '[ИНФО] Конфигурация требует автоматически запустить внешний backend.'
+  $backendArguments = @('-ExperimentPath', $experimentRoot)
+  if (-not [string]::IsNullOrWhiteSpace($ConfigFile)) {
+    $backendArguments += @('-ConfigFile', $ConfigFile)
+  }
+
+  & (Join-Path $PSScriptRoot 'run_slam_backend.ps1') @backendArguments
+}
