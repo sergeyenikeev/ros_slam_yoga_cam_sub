@@ -48,6 +48,9 @@ if (-not $SkipCameraChecks) {
   if (-not $SkipDatasetCheck) {
     Write-Host "`n=== Dataset bag smoke-тест ==="
     & (Join-Path $PSScriptRoot 'dataset_bag_smoke_test.ps1')
+
+    Write-Host "`n=== Smoke-тест пакета эксперимента SLAM ==="
+    & (Join-Path $PSScriptRoot 'slam_experiment_smoke_test.ps1')
   }
 }
 
@@ -56,5 +59,9 @@ if (-not $SkipLaunchCheck) {
   & (Join-Path $PSScriptRoot 'launch_smoke_test.ps1') -TimeoutSeconds $LaunchTimeoutSeconds
 }
 
+# Все критичные шаги выше уже либо бросают исключение, либо завершаются успешно.
+# Явно сбрасываем LASTEXITCODE, чтобы внешний wrapper не унаследовал старый код
+# от внутренних native-команд и не счёл успешный прогон ошибкой.
+$global:LASTEXITCODE = 0
 Write-Host "`n[ИНФО] Полный автоматический прогон завершён успешно."
 

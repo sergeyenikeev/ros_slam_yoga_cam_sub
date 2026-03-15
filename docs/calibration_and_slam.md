@@ -122,6 +122,14 @@ Preflight проверит:
 .\scripts\run_dataset_feature_report.ps1 -BagPath C:\путь\к\bag
 ```
 
+И, наконец, соберите единый пакет эксперимента:
+
+```powershell
+.\scripts\run_slam_experiment.ps1 -BagPath C:\путь\к\bag
+```
+
+Этот каталог потом можно будет напрямую использовать как корень для реального SLAM backend и его результатов.
+
 ### 8. Запускать publisher с реальной калибровкой
 
 ```cmd

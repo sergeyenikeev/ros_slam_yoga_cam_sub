@@ -1,0 +1,35 @@
+﻿{
+  "schema_version": 1,
+  "experiment_name": "baseline_monocular_windows",
+  "slam_backend": "не_задан",
+  "notes": "Опишите цель эксперимента, сцену и гипотезу.",
+  "playback": {
+    "rate": 1.0
+  },
+  "preflight": {
+    "required_frames": 10,
+    "max_runtime_seconds": 15,
+    "min_fps": 1.0
+  },
+  "feature_monitor": {
+    "required_frames": 10,
+    "max_runtime_seconds": 15,
+    "log_every_n_frames": 10,
+    "max_features": 500,
+    "grid_rows": 4,
+    "grid_cols": 4,
+    "min_average_keypoints": 150,
+    "min_average_grid_coverage_ratio": 0.35,
+    "min_average_blur_score": 80.0,
+    "min_average_brightness_mean": 25.0
+  },
+  "future_integration": {
+    "slam_config_path": "",
+    "result_notes": "",
+    "target_topics": [
+      "/camera/image_raw",
+      "/camera/camera_info",
+      "/tf_static"
+    ]
+  }
+}

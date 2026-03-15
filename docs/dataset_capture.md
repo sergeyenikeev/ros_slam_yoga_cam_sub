@@ -154,6 +154,23 @@ Smoke-тест:
 - `average_blur` — не слишком ли картинка смазана;
 - `average_brightness` и `average_contrast` — хватает ли света и текстуры.
 
+## Полный пакет эксперимента по датасету
+
+Когда bag уже прошёл preflight и feature-check, следующий логичный шаг — собрать единый пакет эксперимента:
+
+```powershell
+.\scripts\run_slam_experiment.ps1 -BagPath C:\путь\к\bag
+```
+
+Скрипт создаёт отдельный каталог в `artifacts/slam_experiments/` и складывает туда:
+
+- `experiment_manifest.json`;
+- `experiment_summary.md`;
+- preflight-report;
+- feature-report.
+
+Это удобно как точка входа для будущего реального SLAM backend и сравнения нескольких прогонов на одном bag.
+
 ## Что смотреть в результате
 
 После записи проверьте:
