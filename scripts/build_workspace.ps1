@@ -20,4 +20,6 @@ $arguments = @(
 
 Write-Host '[ИНФО] Запускаем сборку workspace для yoga_cam_sub.'
 & $envScript @arguments
-exit $LASTEXITCODE
+if ($LASTEXITCODE -ne 0) {
+  throw "Сборка workspace завершилась с кодом $LASTEXITCODE."
+}

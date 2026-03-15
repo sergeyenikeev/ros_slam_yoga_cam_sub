@@ -27,4 +27,6 @@ Write-Host '[ИНФО] Проверяем sample YAML калибровки че�
   -p "calibration_file:=$rosCalibrationPath" `
   -p "target_width:=$TargetWidth" `
   -p "target_height:=$TargetHeight"
-exit $LASTEXITCODE
+if ($LASTEXITCODE -ne 0) {
+  throw "Проверка sample YAML завершилась с кодом $LASTEXITCODE."
+}

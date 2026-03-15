@@ -15,8 +15,10 @@ if (Test-Path $staleLintResult) {
 Write-Host '[ИНФО] Запускаем набор тестов yoga_cam_sub.'
 & $envScript colcon test --merge-install --packages-select yoga_cam_sub --event-handlers console_cohesion+
 if ($LASTEXITCODE -ne 0) {
-  exit $LASTEXITCODE
+  throw "colcon test завершился с кодом $LASTEXITCODE."
 }
 
 & $envScript colcon test-result --verbose --test-result-base build\yoga_cam_sub
-exit $LASTEXITCODE
+if ($LASTEXITCODE -ne 0) {
+  throw "colcon test-result завершился с кодом $LASTEXITCODE."
+}
