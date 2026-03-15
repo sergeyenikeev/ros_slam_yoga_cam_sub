@@ -14,6 +14,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 $envScript = Join-Path $PSScriptRoot 'run_in_ros_env.cmd'
+. (Join-Path $PSScriptRoot 'process_utils.ps1')
 $packageRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $minFpsString = $MinFps.ToString('0.0############', [System.Globalization.CultureInfo]::InvariantCulture)
 
@@ -41,9 +42,10 @@ if (-not [string]::IsNullOrWhiteSpace($CalibrationFile)) {
 Write-Host '[ИНФО] Запускаем smoke-проверку SLAM preflight через launch-сценарий.'
 Write-Host ('[ИНФО] Launch: scripts\run_in_ros_env.cmd ' + ($launchArguments -join ' '))
 
-& $envScript @launchArguments
-if ($LASTEXITCODE -ne 0) {
-  throw "SLAM preflight завершился с кодом $LASTEXITCODE."
-}
+Invoke-RosEnvCommand `
+  -EnvScript $envScript `
+  -Arguments $launchArguments `
+  -PrintOutput `
+  -FailureMessage 'SLAM preflight завершился неуспешно.' | Out-Null
 
 Write-Host '[ИНФО] SLAM preflight smoke-тест завершён успешно.'

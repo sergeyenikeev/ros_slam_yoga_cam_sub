@@ -20,6 +20,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 $envScript = Join-Path $PSScriptRoot 'run_in_ros_env.cmd'
+. (Join-Path $PSScriptRoot 'process_utils.ps1')
 $packageRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $artifactRoot = Join-Path $packageRoot 'artifacts\camera_calibration'
 New-Item -ItemType Directory -Force -Path $artifactRoot | Out-Null
@@ -56,8 +57,11 @@ function Join-Topic([string]$Namespace, [string]$Suffix) {
 }
 
 function Test-CameraCalibrationTool {
-  & $envScript cmd /c 'ros2 pkg list | findstr /x camera_calibration' | Out-Null
-  return $LASTEXITCODE -eq 0
+  $result = Invoke-RosEnvCommand `
+    -EnvScript $envScript `
+    -Arguments @('cmd', '/c', 'ros2 pkg list | findstr /x camera_calibration') `
+    -AllowNonZeroExit
+  return $result.ExitCode -eq 0
 }
 
 $normalizedCameraNamespace = Normalize-CameraNamespace $CameraNamespace
@@ -133,11 +137,15 @@ try {
   }
 
   Write-Host '[ИНФО] Запускаем camera_calibration.'
-  & $envScript @calibrationCommand
-  if ($LASTEXITCODE -eq 0) {
+  $result = Invoke-RosEnvCommand `
+    -EnvScript $envScript `
+    -Arguments $calibrationCommand `
+    -PrintOutput `
+    -AllowNonZeroExit
+  if ($result.ExitCode -eq 0) {
     Write-Host '[ИНФО] Если калибровка сохранена в YAML, импортируйте её через scripts\import_camera_calibration.ps1.'
   }
-  exit $LASTEXITCODE
+  exit $result.ExitCode
 }
 finally {
   if ($publisherProcess -and -not $publisherProcess.HasExited) {

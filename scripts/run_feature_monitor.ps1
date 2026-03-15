@@ -8,8 +8,9 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 $envScript = Join-Path $PSScriptRoot 'run_in_ros_env.cmd'
+. (Join-Path $PSScriptRoot 'process_utils.ps1')
 $arguments = @('ros2', 'launch', 'yoga_cam_sub', 'camera_feature_monitor.launch.py') + $LaunchArgs
 
 Write-Host '[ИНФО] Запускаем feature-мониторинг потока камеры.'
-& $envScript @arguments
-exit $LASTEXITCODE
+$result = Invoke-RosEnvCommand -EnvScript $envScript -Arguments $arguments -PrintOutput -AllowNonZeroExit
+exit $result.ExitCode

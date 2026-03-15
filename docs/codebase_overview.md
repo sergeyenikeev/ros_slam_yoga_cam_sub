@@ -213,6 +213,19 @@
 
 Если когда-либо ломается сборка на Windows, первым делом нужно проверять именно этот wrapper.
 
+### `scripts/process_utils.ps1`
+
+Служебная библиотека запуска внешних процессов.
+
+Что делает:
+
+- запускает `run_in_ros_env.cmd` и другие процессы через `Start-Process`;
+- отдельно собирает `stdout` и `stderr`;
+- печатает логи без превращения предупреждений ROS 2 / DDS в ложные terminating error;
+- возвращает структурированный результат с `ExitCode`, `StdOutLines`, `StdErrLines`.
+
+Этот файл особенно важен для стабильного orchestration на PowerShell 7 и Windows.
+
 ### `scripts/build_workspace.ps1`
 
 Официальная сборка пакета через `colcon build`.
@@ -278,9 +291,43 @@
 - preflight report;
 - feature report;
 - markdown summary;
-- effective config.
+- effective config;
+- шаблонные поля ручной оценки backend;
+- автоматическое обновление каталога experiment packet.
 
 Это следующий шаг от "у нас есть bag" к "у нас есть воспроизводимый SLAM experiment packet".
+
+### `scripts/slam_experiment_utils.ps1`
+
+Служебная библиотека experiment workflow.
+
+Что делает:
+
+- резолвит `experiment_manifest.json` по пути к каталогу или файлу;
+- строит общий каталог экспериментов;
+- готовит comparison-object для baseline/candidate;
+- форматирует значения ручной оценки backend.
+
+Это центральный helper для реестра и сравнения экспериментов.
+
+### `scripts/update_slam_experiment_catalog.ps1`
+
+Явно пересобирает `slam_experiment_catalog.json`.
+
+Полезен, когда experiment packet уже созданы и нужно быстро обновить сводный индекс без повторного прогона отчётов.
+
+### `scripts/compare_slam_experiments.ps1`
+
+Offline-сравнение двух experiment packet.
+
+Что делает:
+
+- читает baseline и candidate manifest;
+- сравнивает readiness и ключевые входные метрики;
+- сохраняет `comparison.json`;
+- сохраняет `comparison_summary.md`.
+
+Это мост между простым experiment packet и будущим regression workflow по SLAM backend.
 
 ### `scripts/update_dataset_catalog.ps1`
 

@@ -130,6 +130,14 @@ Preflight проверит:
 
 Этот каталог потом можно будет напрямую использовать как корень для реального SLAM backend и его результатов.
 
+Если позже появится baseline и новый кандидат, их можно сравнить offline:
+
+```powershell
+.\scripts\compare_slam_experiments.ps1 -BaselineExperiment C:\путь\к\baseline_experiment -CandidateExperiment C:\путь\к\candidate_experiment
+```
+
+Так мы заранее увидим, нет ли деградации входных метрик, ещё до анализа trajectory и map output.
+
 ### 8. Запускать publisher с реальной калибровкой
 
 ```cmd

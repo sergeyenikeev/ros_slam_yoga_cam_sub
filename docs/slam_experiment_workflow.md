@@ -14,7 +14,9 @@
 - feature-report по dataset;
 - experiment manifest;
 - markdown summary;
-- effective config эксперимента.
+- effective config эксперимента;
+- шаблонные поля для ручной оценки backend;
+- автоматическое обновление общего каталога экспериментов.
 
 Это делает дальнейшую интеграцию реального SLAM backend воспроизводимой.
 
@@ -43,6 +45,12 @@ artifacts/slam_experiments/slam_experiment_<timestamp>/
 - `reports/preflight_report.json` — структурная пригодность потока;
 - `reports/feature_report.json` — visual-feature пригодность потока.
 
+После каждого запуска также обновляется общий файл:
+
+- `artifacts/slam_experiments/slam_experiment_catalog.json`
+
+Он нужен, чтобы быстро увидеть все накопленные experiment packet и их ключевые метрики.
+
 ## Что означает `ready_for_slam`
 
 Поле `experiment.ready_for_slam` в manifest становится `true`, если:
@@ -64,6 +72,37 @@ artifacts/slam_experiments/slam_experiment_<timestamp>/
 ```
 
 Скрипт использует последний доступный dataset, собирает experiment packet и проверяет наличие всех ключевых файлов.
+
+## Offline-сравнение двух экспериментов
+
+Когда появляется baseline и новый кандидат, можно сравнить их без запуска камеры:
+
+```powershell
+.\scripts\compare_slam_experiments.ps1 `
+  -BaselineExperiment C:\путь\к\baseline_experiment `
+  -CandidateExperiment C:\путь\к\candidate_experiment
+```
+
+На выходе появятся:
+
+- `comparison.json` — machine-readable сравнение;
+- `comparison_summary.md` — краткая human-readable сводка.
+
+Сравнение сейчас работает по входным данным эксперимента:
+
+- `ready_for_slam`;
+- `average_fps`;
+- `average_keypoints`;
+- `average_coverage`;
+- `average_blur`;
+- `average_brightness`;
+- ручная оценка `tracking_lost` и `map_quality`, если она уже заполнена.
+
+Для быстрой проверки есть отдельный smoke-тест:
+
+```powershell
+.\scripts\slam_experiment_compare_smoke_test.ps1
+```
 
 ## Как это использовать дальше
 

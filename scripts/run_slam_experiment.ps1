@@ -16,6 +16,7 @@ $ErrorActionPreference = 'Stop'
 
 $packageRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 . (Join-Path $PSScriptRoot 'dataset_catalog_utils.ps1')
+. (Join-Path $PSScriptRoot 'slam_experiment_utils.ps1')
 
 function Get-ConfigValue {
   param(
@@ -113,6 +114,13 @@ $effectiveNotes = if (-not [string]::IsNullOrWhiteSpace($Notes)) {
 } else {
   [string](Get-ConfigValue -Config $config -PathSegments @('notes') -DefaultValue '')
 }
+$manualTrackingLost = Get-ConfigValue -Config $config -PathSegments @('manual_assessment', 'tracking_lost') -DefaultValue $null
+$manualMapQuality = [string](Get-ConfigValue -Config $config -PathSegments @('manual_assessment', 'map_quality') -DefaultValue 'не_оценено')
+$manualSubjectiveNotes = [string](Get-ConfigValue -Config $config -PathSegments @('manual_assessment', 'subjective_notes') -DefaultValue '')
+$backendTrajectoryPath = [string](Get-ConfigValue -Config $config -PathSegments @('backend_result', 'trajectory_path') -DefaultValue '')
+$backendMapPath = [string](Get-ConfigValue -Config $config -PathSegments @('backend_result', 'map_path') -DefaultValue '')
+$backendRuntimeLogPath = [string](Get-ConfigValue -Config $config -PathSegments @('backend_result', 'runtime_log_path') -DefaultValue '')
+$backendResultNotes = [string](Get-ConfigValue -Config $config -PathSegments @('backend_result', 'result_notes') -DefaultValue '')
 
 $preflightReportPath = Join-Path $reportsRoot 'preflight_report.json'
 $featureReportPath = Join-Path $reportsRoot 'feature_report.json'
@@ -193,6 +201,17 @@ $experimentManifest = [ordered]@{
     preflight_report_path = if (Test-Path $preflightReportPath) { $preflightReportPath } else { '' }
     feature_report_path = if (Test-Path $featureReportPath) { $featureReportPath } else { '' }
   }
+  manual_assessment = [ordered]@{
+    tracking_lost = $manualTrackingLost
+    map_quality = $manualMapQuality
+    subjective_notes = $manualSubjectiveNotes
+  }
+  backend_result = [ordered]@{
+    trajectory_path = $backendTrajectoryPath
+    map_path = $backendMapPath
+    runtime_log_path = $backendRuntimeLogPath
+    result_notes = $backendResultNotes
+  }
 }
 
 if ($datasetManifest) {
@@ -228,6 +247,22 @@ $summaryLines = @(
 if (-not [string]::IsNullOrWhiteSpace($effectiveNotes)) {
   $summaryLines += @('', '## Заметки', '', $effectiveNotes)
 }
+$summaryLines += @(
+  '',
+  '## Поля для фиксации результата backend',
+  '',
+  "- tracking_lost: $(Get-ExperimentTrackingLostLabel -Value $manualTrackingLost)",
+  "- map_quality: $manualMapQuality",
+  "- trajectory_path: $(if ([string]::IsNullOrWhiteSpace($backendTrajectoryPath)) { '<не заполнено>' } else { $backendTrajectoryPath })",
+  "- map_path: $(if ([string]::IsNullOrWhiteSpace($backendMapPath)) { '<не заполнено>' } else { $backendMapPath })",
+  "- runtime_log_path: $(if ([string]::IsNullOrWhiteSpace($backendRuntimeLogPath)) { '<не заполнено>' } else { $backendRuntimeLogPath })"
+)
+if (-not [string]::IsNullOrWhiteSpace($manualSubjectiveNotes)) {
+  $summaryLines += @('', '## Субъективные заметки по backend', '', $manualSubjectiveNotes)
+}
+if (-not [string]::IsNullOrWhiteSpace($backendResultNotes)) {
+  $summaryLines += @('', '## Заметки по артефактам backend', '', $backendResultNotes)
+}
 $summaryLines += @('', '## Следующие шаги', '')
 if ($readyForSlam) {
   $summaryLines += '- Пакет эксперимента готов: можно подключать внешний monocular SLAM backend и писать его output в этот же каталог.'
@@ -236,6 +271,12 @@ if ($readyForSlam) {
 }
 Set-Content -Path $summaryOutputPath -Value ($summaryLines -join "`r`n") -Encoding UTF8
 
+# После каждой сборки пакета эксперимента обновляем сводный каталог, чтобы
+# следующий шаг автоматизации сразу видел все доступные SLAM-прогоны.
+$catalog = Update-SlamExperimentCatalogFile -ExperimentsRoot $OutputRoot
+$catalogPath = Get-SlamExperimentCatalogPath -ExperimentsRoot $OutputRoot
+
 Write-Host '[ИНФО] Пакет эксперимента monocular SLAM успешно подготовлен.'
 Write-Host "[ИНФО] manifest_path=$manifestOutputPath"
 Write-Host "[ИНФО] summary_path=$summaryOutputPath"
+Write-Host "[ИНФО] catalog_path=$catalogPath"

@@ -11,6 +11,7 @@
 - добавлены сценарии записи и воспроизведения rosbag-датасета для повторяемых SLAM-прогонов без живой камеры;
 - добавлены offline-отчёты по dataset playback: отдельно для preflight и для feature-качества потока;
 - добавлен пакет эксперимента monocular SLAM, который собирает отчёты и manifest по bag в один reproducible каталог;
+- добавлен реестр экспериментов monocular SLAM: каталог experiment packet, offline-сравнение двух прогонов и шаблоны ручной оценки backend;
 - вынесена тестируемая логика подготовки кадров и `CameraInfo` в библиотеку `camera_utils`;
 - добавлены unit-тесты для валидации параметров, преобразования кадров, генерации `Image` и `CameraInfo`;
 - добавлены launch-файлы, smoke-тесты, сценарий полного прогона и скрипты сборки/диагностики;
@@ -35,12 +36,16 @@
 - `launch/static_camera_tf.launch.py` — публикация статического TF между `camera_link` и `camera_optical_frame`;
 - `launch/camera_slam_ready.launch.py` — связка publisher + статический TF для следующего этапа SLAM;
 - `scripts/full_validation.ps1` — единый автоматический прогон всех доступных проверок;
+- `scripts/process_utils.ps1` — общая библиотека безопасного запуска `run_in_ros_env.cmd` без ложных падений из-за stderr-предупреждений;
 - `scripts/run_dataset_record.ps1` — запись SLAM-ready rosbag-датасета с изображением, `CameraInfo` и `tf_static`;
 - `scripts/run_dataset_playback.ps1` — воспроизведение записанного bag-файла с optional subscriber/preflight;
 - `scripts/run_dataset_report.ps1` — построение JSON-отчёта по recorded bag и offline preflight;
 - `scripts/run_dataset_feature_report.ps1` — построение JSON-отчёта по feature-качеству recorded bag;
 - `scripts/run_slam_experiment.ps1` — сборка полного пакета эксперимента monocular SLAM по bag;
 - `scripts/slam_experiment_smoke_test.ps1` — smoke-тест experiment workflow;
+- `scripts/compare_slam_experiments.ps1` — offline-сравнение двух experiment packet по ключевым метрикам;
+- `scripts/update_slam_experiment_catalog.ps1` — пересборка сводного каталога experiment packet;
+- `scripts/slam_experiment_compare_smoke_test.ps1` — smoke-тест сравнения двух SLAM-экспериментов;
 - `scripts/update_dataset_catalog.ps1` — пересборка общего каталога датасетов из `artifacts/datasets/`;
 - `scripts/dataset_bag_smoke_test.ps1` — автоматическая запись и проверка короткого bag-датасета;
 - `scripts/run_camera_calibration.ps1` — подготовка и запуск калибровки камеры;
@@ -93,6 +98,7 @@ scripts\build_workspace.cmd
 ```
 
 Сценарий последовательно выполняет диагностику окружения, сборку, unit/lint тесты, smoke-тест subscriber, проверку YAML-калибровки, проверку реальных топиков, SLAM preflight smoke-тест, dataset bag smoke-тест с preflight/report/feature-report и launch smoke-тест.
+Дополнительно он проверяет reproducible experiment workflow: сборку experiment packet и offline-сравнение двух SLAM-экспериментов.
 
 ### 6. Подготовка калибровки
 
@@ -186,7 +192,25 @@ scripts\build_workspace.cmd
 .\scripts\run_slam_experiment.ps1 -BagPath C:\dev\ros2_ws\src\yoga_cam_sub\artifacts\datasets\camera_dataset_YYYYMMDD_HHMMSS\bag
 ```
 
-Скрипт собирает в один каталог `experiment_manifest.json`, `experiment_summary.md`, preflight-report и feature-report. Это база для следующего шага — подключения реального SLAM backend.
+Скрипт собирает в один каталог `experiment_manifest.json`, `experiment_summary.md`, preflight-report и feature-report. Дополнительно он обновляет `artifacts/slam_experiments/slam_experiment_catalog.json`, чтобы все эксперименты были видны в одном реестре.
+
+### 17. Сравнение двух experiment packet
+
+```powershell
+.\scripts\compare_slam_experiments.ps1 `
+  -BaselineExperiment C:\dev\ros2_ws\src\yoga_cam_sub\artifacts\slam_experiments\experiment_a `
+  -CandidateExperiment C:\dev\ros2_ws\src\yoga_cam_sub\artifacts\slam_experiments\experiment_b
+```
+
+Сценарий формирует `comparison.json` и `comparison_summary.md` в `artifacts/slam_experiment_comparisons/`. Это удобно, когда мы хотим понять, улучшился ли кандидат относительно baseline ещё до подключения тяжёлого backend.
+
+### 18. Пересборка каталога экспериментов
+
+```powershell
+.\scripts\update_slam_experiment_catalog.ps1
+```
+
+Каталог помогает быстро увидеть список experiment packet, их `ready_for_slam`, средний FPS, среднее число feature и ручную оценку backend.
 
 ## Важные параметры `camera_publisher`
 

@@ -21,6 +21,7 @@ $envScript = Join-Path $PSScriptRoot 'run_in_ros_env.cmd'
 $datasetUtils = Join-Path $PSScriptRoot 'dataset_catalog_utils.ps1'
 $packageRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 . $datasetUtils
+. (Join-Path $PSScriptRoot 'process_utils.ps1')
 
 function Stop-ProcessTree {
   param(
@@ -232,12 +233,12 @@ function Invoke-RecordingAttempt {
   }
 
   Write-Host '[ИНФО] Восстанавливаем metadata.yaml через ros2 bag reindex.'
-  $reindexOutput = & $envScript ros2 bag reindex $bagPathForRos
-  if ($LASTEXITCODE -ne 0) {
-    throw "ros2 bag reindex завершился с кодом $LASTEXITCODE."
-  }
-  if ($reindexOutput) {
-    $reindexOutput | ForEach-Object { Write-Host $_ }
+  $reindexResult = Invoke-RosEnvCommand `
+    -EnvScript $envScript `
+    -Arguments @('ros2', 'bag', 'reindex', $bagPathForRos) `
+    -FailureMessage 'ros2 bag reindex завершился неуспешно.'
+  if ($reindexResult.CombinedLines) {
+    $reindexResult.CombinedLines | ForEach-Object { Write-Host $_ }
   }
 
   if (-not (Test-Path (Join-Path $bagRoot 'metadata.yaml'))) {
@@ -245,11 +246,11 @@ function Invoke-RecordingAttempt {
   }
 
   Write-Host '[ИНФО] Получаем информацию о записанном bag-файле.'
-  $bagInfoLines = & $envScript ros2 bag info $bagPathForRos
-  if ($LASTEXITCODE -ne 0) {
-    throw "ros2 bag info завершился с кодом $LASTEXITCODE."
-  }
-  $bagInfoLines | Tee-Object -FilePath $bagInfoFile | ForEach-Object { Write-Host $_ }
+  $bagInfoResult = Invoke-RosEnvCommand `
+    -EnvScript $envScript `
+    -Arguments @('ros2', 'bag', 'info', $bagPathForRos) `
+    -FailureMessage 'ros2 bag info завершился неуспешно.'
+  $bagInfoResult.StdOutLines | Tee-Object -FilePath $bagInfoFile | ForEach-Object { Write-Host $_ }
 
   $bagInfoText = if (Test-Path $bagInfoFile) { Get-Content $bagInfoFile -Raw -Encoding UTF8 } else { '' }
   foreach ($requiredTopic in @('/camera/image_raw', '/camera/camera_info', '/tf_static')) {

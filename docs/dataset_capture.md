@@ -169,6 +169,12 @@ Smoke-тест:
 - preflight-report;
 - feature-report.
 
+После этого experiment packet можно сравнивать offline:
+
+```powershell
+.\scripts\compare_slam_experiments.ps1 -BaselineExperiment C:\путь\к\baseline -CandidateExperiment C:\путь\к\candidate
+```
+
 Это удобно как точка входа для будущего реального SLAM backend и сравнения нескольких прогонов на одном bag.
 
 ## Что смотреть в результате

@@ -10,6 +10,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 $envScript = Join-Path $PSScriptRoot 'run_in_ros_env.cmd'
+. (Join-Path $PSScriptRoot 'process_utils.ps1')
 $packageRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $artifactRoot = Join-Path $packageRoot 'artifacts\smoke_tests'
 New-Item -ItemType Directory -Force -Path $artifactRoot | Out-Null
@@ -88,6 +89,25 @@ function Start-RosProcess {
     -PassThru
 }
 
+function Invoke-RosCommandViaPowerShell {
+  param(
+    [string[]]$RosArguments,
+    [string]$FailureMessage
+  )
+
+  $commandParts = @("& $(ConvertTo-PowerShellLiteral -Value $envScript)")
+  foreach ($argument in $RosArguments) {
+    $commandParts += (ConvertTo-PowerShellLiteral -Value $argument)
+  }
+  $commandText = ($commandParts -join ' ') + '; exit $LASTEXITCODE'
+
+  return Invoke-LoggedProcess `
+    -FilePath 'powershell.exe' `
+    -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', $commandText) `
+    -PrintOutput `
+    -FailureMessage $FailureMessage
+}
+
 function Get-CombinedLogText {
   param(
     [string]$StdoutPath,
@@ -159,20 +179,21 @@ try {
     -TimeoutSeconds $SubscriberReadyTimeoutSeconds
 
   Write-Host '[ИНФО] Публикуем серию тестовых сообщений в /camera/image_raw.'
-  & $envScript ros2 topic pub `
-    --times $PublishTimes `
-    --rate $PublishRate `
-    --keep-alive 1.0 `
-    --qos-profile sensor_data `
-    --qos-history keep_last `
-    --qos-depth 5 `
-    --wait-matching-subscriptions 1 `
-    --max-wait-time-secs 10 `
-    /camera/image_raw sensor_msgs/msg/Image `
-    "{header: {frame_id: 'test_camera'}, height: 1, width: 1, encoding: 'bgr8', is_bigendian: 0, step: 3, data: [1, 2, 3]}"
-  if ($LASTEXITCODE -ne 0) {
-    throw 'Не удалось опубликовать тестовое сообщение.'
-  }
+  Invoke-RosCommandViaPowerShell `
+    -RosArguments @(
+      'ros2', 'topic', 'pub',
+      '--times', "$PublishTimes",
+      '--rate', "$PublishRate",
+      '--keep-alive', '1.0',
+      '--qos-profile', 'sensor_data',
+      '--qos-history', 'keep_last',
+      '--qos-depth', '5',
+      '--wait-matching-subscriptions', '1',
+      '--max-wait-time-secs', '10',
+      '/camera/image_raw', 'sensor_msgs/msg/Image',
+      "{header: {frame_id: 'test_camera'}, height: 1, width: 1, encoding: 'bgr8', is_bigendian: 0, step: 3, data: [1, 2, 3]}"
+    ) `
+    -FailureMessage 'Не удалось опубликовать тестовое сообщение.' | Out-Null
 
   if (-not $process.WaitForExit($CompletionTimeoutSeconds * 1000)) {
     throw 'image_counter не завершился после получения тестового сообщения.'

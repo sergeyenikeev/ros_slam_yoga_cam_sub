@@ -8,6 +8,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 $envScript = Join-Path $PSScriptRoot 'run_in_ros_env.cmd'
+. (Join-Path $PSScriptRoot 'process_utils.ps1')
 $packageRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $sampleFile = Join-Path $packageRoot 'config\camera_calibration.sample.yaml'
 
@@ -21,12 +22,14 @@ if ($TargetWidth -le 0 -or $TargetHeight -le 0) {
 $rosCalibrationPath = $sampleFile.Replace('\', '/')
 
 Write-Host '[ИНФО] Проверяем sample YAML калибровки через camera_calibration_inspector.'
-& $envScript `
-  ros2 run yoga_cam_sub camera_calibration_inspector `
-  --ros-args `
-  -p "calibration_file:=$rosCalibrationPath" `
-  -p "target_width:=$TargetWidth" `
-  -p "target_height:=$TargetHeight"
-if ($LASTEXITCODE -ne 0) {
-  throw "Проверка sample YAML завершилась с кодом $LASTEXITCODE."
-}
+Invoke-RosEnvCommand `
+  -EnvScript $envScript `
+  -Arguments @(
+    'ros2', 'run', 'yoga_cam_sub', 'camera_calibration_inspector',
+    '--ros-args',
+    '-p', "calibration_file:=$rosCalibrationPath",
+    '-p', "target_width:=$TargetWidth",
+    '-p', "target_height:=$TargetHeight"
+  ) `
+  -PrintOutput `
+  -FailureMessage 'Проверка sample YAML завершилась неуспешно.' | Out-Null

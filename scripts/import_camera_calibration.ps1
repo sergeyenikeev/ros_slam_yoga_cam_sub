@@ -12,6 +12,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 $envScript = Join-Path $PSScriptRoot 'run_in_ros_env.cmd'
+. (Join-Path $PSScriptRoot 'process_utils.ps1')
 $packageRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 
 function Convert-ToRosPath([string]$PathValue) {
@@ -58,10 +59,11 @@ if ($TargetWidth -gt 0 -and $TargetHeight -gt 0) {
 }
 
 Write-Host '[ИНФО] Проверяем импортированный YAML калибровки.'
-& $envScript @arguments
-if ($LASTEXITCODE -ne 0) {
-  throw 'camera_calibration_inspector сообщил об ошибке в файле калибровки.'
-}
+Invoke-RosEnvCommand `
+  -EnvScript $envScript `
+  -Arguments $arguments `
+  -PrintOutput `
+  -FailureMessage 'camera_calibration_inspector сообщил об ошибке в файле калибровки.' | Out-Null
 
 Write-Host '[ИНФО] Файл калибровки валиден.'
 Write-Host '[ИНФО] Примеры следующего запуска:'

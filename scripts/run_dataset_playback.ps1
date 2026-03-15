@@ -30,6 +30,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 $envScript = Join-Path $PSScriptRoot 'run_in_ros_env.cmd'
+. (Join-Path $PSScriptRoot 'process_utils.ps1')
 $packageRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $artifactRoot = Join-Path $packageRoot 'artifacts\dataset_playback'
 New-Item -ItemType Directory -Force -Path $artifactRoot | Out-Null
@@ -251,10 +252,11 @@ try {
     }
   }
 
-  & $envScript @playArguments
-  if ($LASTEXITCODE -ne 0) {
-    throw "ros2 bag play завершился с кодом $LASTEXITCODE."
-  }
+  Invoke-RosEnvCommand `
+    -EnvScript $envScript `
+    -Arguments $playArguments `
+    -PrintOutput `
+    -FailureMessage 'ros2 bag play завершился неуспешно.' | Out-Null
 
   if ($subscriberProcess) {
     $waitSeconds = if ($RunPreflight) {

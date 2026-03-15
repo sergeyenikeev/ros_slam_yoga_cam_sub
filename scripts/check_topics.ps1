@@ -20,6 +20,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 $envScript = Join-Path $PSScriptRoot 'run_in_ros_env.cmd'
+. (Join-Path $PSScriptRoot 'process_utils.ps1')
 $packageRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $artifactRoot = Join-Path $packageRoot 'artifacts\topic_checks'
 New-Item -ItemType Directory -Force -Path $artifactRoot | Out-Null
@@ -129,10 +130,11 @@ try {
   $topicList = @()
   $topicFound = $false
   for ($attempt = 1; $attempt -le 15; $attempt++) {
-    $topicList = & $envScript ros2 topic list
-    if ($LASTEXITCODE -ne 0) {
-      throw 'Не удалось получить список ROS-топиков.'
-    }
+    $topicListResult = Invoke-RosEnvCommand `
+      -EnvScript $envScript `
+      -Arguments @('ros2', 'topic', 'list') `
+      -FailureMessage 'Не удалось получить список ROS-топиков.'
+    $topicList = @($topicListResult.StdOutLines)
 
     if (($topicList -contains $ImageTopic) -and ($topicList -contains $CameraInfoTopic)) {
       $topicFound = $true

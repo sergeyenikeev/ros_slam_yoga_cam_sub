@@ -31,5 +31,16 @@
       "/camera/camera_info",
       "/tf_static"
     ]
+  },
+  "manual_assessment": {
+    "tracking_lost": null,
+    "map_quality": "не_оценено",
+    "subjective_notes": ""
+  },
+  "backend_result": {
+    "trajectory_path": "",
+    "map_path": "",
+    "runtime_log_path": "",
+    "result_notes": ""
   }
 }

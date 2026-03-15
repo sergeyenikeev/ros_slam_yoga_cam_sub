@@ -9,6 +9,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 $envScript = Join-Path $PSScriptRoot 'run_in_ros_env.cmd'
+. (Join-Path $PSScriptRoot 'process_utils.ps1')
 $packageRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $artifactRoot = Join-Path $packageRoot 'artifacts\tf_smoke_test'
 New-Item -ItemType Directory -Force -Path $artifactRoot | Out-Null
@@ -21,10 +22,10 @@ Remove-Item $publisherStdout, $publisherStderr, $echoStdout, $echoStderr -ErrorA
 
 Write-Host '[ИНФО] Запускаем smoke-тест статического TF.'
 # Сначала проверяем, что наш launch-файл установлен и корректно парсится.
-& $envScript ros2 launch yoga_cam_sub static_camera_tf.launch.py --show-args | Out-Null
-if ($LASTEXITCODE -ne 0) {
-  throw 'Smoke-тест статического TF не смог провалидировать launch static_camera_tf.launch.py.'
-}
+Invoke-RosEnvCommand `
+  -EnvScript $envScript `
+  -Arguments @('ros2', 'launch', 'yoga_cam_sub', 'static_camera_tf.launch.py', '--show-args') `
+  -FailureMessage 'Smoke-тест статического TF не смог провалидировать launch static_camera_tf.launch.py.' | Out-Null
 
 # Затем публикуем сам transform напрямую, чтобы smoke-тест не зависел от долгоживущего ros2 launch процесса.
 $publisherProcess = Start-Process `

@@ -141,17 +141,21 @@ Definition of done:
 
 ### 3.1. Довести experiment workflow до полноценного журнала экспериментов
 
-Статус: базовый пакет эксперимента уже добавлен.
+Статус: частично готово.
+
+Уже сделано:
+
+- есть reproducible experiment packet по bag;
+- есть общий каталог experiment packet;
+- есть offline-сравнение baseline/candidate по входным SLAM-метрикам;
+- есть шаблонные поля для ручной оценки backend (`tracking_lost`, `map_quality`, заметки).
 
 Осталось сделать:
 
-- добавить сравнение двух experiment manifest/report;
-- добавить сводную таблицу по экспериментам;
-- добавить явные поля для человеческой оценки результата:
-  - tracking_lost;
-  - map_quality;
-  - subjective_notes;
-- добавить шаблон для ручной фиксации результатов backend.
+- добавить отдельный шаг фиксации реального backend output в experiment packet;
+- добавить более богатое сравнение по trajectory / tracking statistics, когда backend появится;
+- добавить компактную сводную таблицу по экспериментам в Markdown или CSV;
+- добавить шаблон регрессии "baseline vs candidate" для одного и того же эталонного bag.
 
 Definition of done:
 
