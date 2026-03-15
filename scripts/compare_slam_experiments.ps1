@@ -75,6 +75,14 @@ foreach ($metricName in @('average_fps', 'average_keypoints', 'average_coverage'
 }
 $summaryLines += @(
   '',
+  '## Траектория backend',
+  ''
+)
+foreach ($metricName in @('sample_count', 'duration_sec', 'path_length_m', 'net_displacement_m', 'mean_speed_mps', 'max_step_m')) {
+  $summaryLines += Get-MetricLine -Metric $comparison.trajectory.$metricName
+}
+$summaryLines += @(
+  '',
   '## Ручная оценка backend',
   '',
   "- baseline_tracking_lost: $(Get-ExperimentTrackingLostLabel -Value $comparison.manual_assessment.baseline_tracking_lost)",
@@ -88,6 +96,8 @@ $summaryLines += @(
   "- candidate_backend_success: $($comparison.backend.candidate_success)",
   "- baseline_trajectory_found: $($comparison.backend.baseline_trajectory_found)",
   "- candidate_trajectory_found: $($comparison.backend.candidate_trajectory_found)",
+  "- baseline_trajectory_analysis_success: $($comparison.backend.baseline_trajectory_analysis_success)",
+  "- candidate_trajectory_analysis_success: $($comparison.backend.candidate_trajectory_analysis_success)",
   "- baseline_map_found: $($comparison.backend.baseline_map_found)",
   "- candidate_map_found: $($comparison.backend.candidate_map_found)",
   '',

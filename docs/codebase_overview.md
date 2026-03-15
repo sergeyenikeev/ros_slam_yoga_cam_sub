@@ -307,6 +307,7 @@
 - резолвит шаблонные пути и аргументы backend;
 - запускает внешний процесс с timeout;
 - сохраняет `stdout/stderr` и backend_result;
+- строит `trajectory_report.json` / `trajectory_report.md`, если trajectory сохранена в поддержанном формате;
 - обновляет manifest, summary и общий каталог экспериментов.
 
 Это основной мост между подготовленным bag и настоящим monocular SLAM backend.
@@ -316,6 +317,19 @@
 Служебный mock backend для smoke-тестов.
 
 Он не делает реальный SLAM, а только создаёт trajectory/map/runtime-артефакты, чтобы проверить orchestration, не требуя установленного внешнего backend.
+
+### `scripts/trajectory_report_utils.ps1`
+
+Служебная библиотека разбора trajectory.
+
+Что делает:
+
+- читает стандартный `csv_pose_v1`;
+- валидирует обязательные поля и порядок timestamp;
+- считает длину trajectory, смещение, среднюю скорость и bounding box;
+- пишет JSON/Markdown-отчёт для experiment packet.
+
+Это нужен для того, чтобы сравнение экспериментов шло не по сырым CSV разных backend, а по единому нормализованному контракту.
 
 ### `scripts/slam_experiment_utils.ps1`
 
@@ -328,6 +342,7 @@
 - генерирует Markdown/CSV-таблицы по каталогу экспериментов;
 - умеет пересобирать summary конкретного experiment packet;
 - готовит comparison-object для baseline/candidate;
+- включает trajectory-метрики backend в catalog и comparison;
 - форматирует значения ручной оценки backend.
 
 Это центральный helper для реестра и сравнения экспериментов.

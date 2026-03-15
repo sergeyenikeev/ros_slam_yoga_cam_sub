@@ -59,6 +59,43 @@ StreamTimingStatistics calculate_timing_statistics(const std::vector<std::int64_
   return statistics;
 }
 
+TimestampNormalizationResult normalize_message_timestamp(
+  const std::int64_t preferred_timestamp_ns,
+  const std::int64_t fallback_timestamp_ns,
+  const std::int64_t last_timestamp_ns)
+{
+  TimestampNormalizationResult result;
+  std::int64_t candidate_timestamp_ns = preferred_timestamp_ns;
+
+  if (candidate_timestamp_ns <= 0) {
+    result.source_stamp_missing = true;
+    candidate_timestamp_ns = fallback_timestamp_ns;
+    result.fallback_stamp_used = fallback_timestamp_ns > 0;
+  }
+
+  if (candidate_timestamp_ns <= 0) {
+    candidate_timestamp_ns = 1;
+    result.synthesized_monotonic_tick = true;
+  }
+
+  if (last_timestamp_ns > 0 && candidate_timestamp_ns <= last_timestamp_ns) {
+    result.source_stamp_non_monotonic = preferred_timestamp_ns > 0;
+
+    // Сначала стараемся использовать фактическое время получения сообщения:
+    // это сохраняет реалистичный профиль потока лучше, чем искусственный шаг.
+    if (fallback_timestamp_ns > last_timestamp_ns) {
+      candidate_timestamp_ns = fallback_timestamp_ns;
+      result.fallback_stamp_used = true;
+    } else {
+      candidate_timestamp_ns = last_timestamp_ns + 1;
+      result.synthesized_monotonic_tick = true;
+    }
+  }
+
+  result.timestamp_ns = candidate_timestamp_ns;
+  return result;
+}
+
 std::vector<std::string> validate_image_and_camera_info(
   const sensor_msgs::msg::Image & image,
   const sensor_msgs::msg::CameraInfo & camera_info)

@@ -148,13 +148,14 @@ Definition of done:
 - есть reproducible experiment packet по bag;
 - есть общий каталог experiment packet;
 - есть offline-сравнение baseline/candidate по входным SLAM-метрикам;
+- есть trajectory-report по backend output и offline-сравнение длины/скорости trajectory между экспериментами;
 - есть шаблонные поля для ручной оценки backend (`tracking_lost`, `map_quality`, заметки).
 - есть backend-agnostic runner для внешнего SLAM backend и mock smoke-проверка этого слоя;
 - есть Markdown/CSV-сводка по каталогу экспериментов.
 
 Осталось сделать:
 
-- добавить более богатое сравнение по trajectory / tracking statistics, когда backend появится;
+- добавить более богатое сравнение по tracking statistics и качеству карты, когда появится реальный backend;
 - добавить шаблон регрессии "baseline vs candidate" для одного и того же эталонного bag.
 
 Definition of done:

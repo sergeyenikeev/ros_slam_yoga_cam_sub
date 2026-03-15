@@ -17,6 +17,7 @@
 - запустить внешний backend командой или скриптом;
 - сохранить `stdout` и `stderr` backend в каталог эксперимента;
 - проверить наличие trajectory / map / runtime-log;
+- построить единый `trajectory_report.json` по стандартному CSV-контракту;
 - обновить manifest, summary и общий каталог экспериментов.
 
 Это позволяет поэтапно готовить реальную интеграцию SLAM даже до установки конкретного backend в текущий Windows underlay.
@@ -44,6 +45,8 @@
 - `backend_artifacts/backend_stdout.log`
 - `backend_artifacts/backend_stderr.log`
 - `backend_artifacts/backend_result.json`
+- `reports/trajectory_report.json`
+- `reports/trajectory_report.md`
 - trajectory / map / runtime-log, если backend их создал
 
 Одновременно обновляются:
@@ -70,10 +73,13 @@ config/slam_backend.mock.template.json
 - `working_directory`
 - `timeout_seconds`
 - `trajectory_path`
+- `trajectory_format`
 - `map_path`
 - `runtime_log_path`
 - `result_notes`
 - `allow_failure`
+
+Если backend пишет trajectory в поддержанном формате `csv_pose_v1`, runner автоматически строит trajectory-report и включает его в manifest.
 
 В строковых полях можно использовать шаблоны:
 

@@ -22,8 +22,26 @@ struct StreamTimingStatistics
   double stddev_period_ms{0.0};
 };
 
+// Результат нормализации timestamp для случаев, когда upstream-поток
+// не гарантирует корректный и строго возрастающий header.stamp.
+struct TimestampNormalizationResult
+{
+  std::int64_t timestamp_ns{0};
+  bool source_stamp_missing{false};
+  bool source_stamp_non_monotonic{false};
+  bool fallback_stamp_used{false};
+  bool synthesized_monotonic_tick{false};
+};
+
 // Считает средний FPS и джиттер по последовательности timestamp в наносекундах.
 StreamTimingStatistics calculate_timing_statistics(const std::vector<std::int64_t> & timestamps_ns);
+
+// Приводит timestamp сообщения к монотонной последовательности, сохраняя максимум
+// полезной информации из header.stamp и при необходимости используя fallback-время.
+TimestampNormalizationResult normalize_message_timestamp(
+  std::int64_t preferred_timestamp_ns,
+  std::int64_t fallback_timestamp_ns,
+  std::int64_t last_timestamp_ns);
 
 // Проверяет согласованность Image и CameraInfo перед подключением SLAM.
 std::vector<std::string> validate_image_and_camera_info(

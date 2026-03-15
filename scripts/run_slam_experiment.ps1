@@ -91,12 +91,15 @@ $reportsRoot = Join-Path $experimentRoot 'reports'
 New-Item -ItemType Directory -Force -Path $reportsRoot | Out-Null
 
 $playbackRate = [double](Get-ConfigValue -Config $config -PathSegments @('playback', 'rate') -DefaultValue 1.0)
+# На Windows старт `ros2 bag play` может занимать ощутимые секунды, поэтому
+# runtime budget для smoke- и experiment-сценариев держим чуть более свободным.
 $preflightRequiredFrames = [int](Get-ConfigValue -Config $config -PathSegments @('preflight', 'required_frames') -DefaultValue 10)
 $preflightMaxRuntimeSeconds = [int](Get-ConfigValue -Config $config -PathSegments @('preflight', 'max_runtime_seconds') -DefaultValue 15)
 $preflightMinFps = [double](Get-ConfigValue -Config $config -PathSegments @('preflight', 'min_fps') -DefaultValue 1.0)
 $featureRequiredFrames = [int](Get-ConfigValue -Config $config -PathSegments @('feature_monitor', 'required_frames') -DefaultValue 10)
 $featureMaxRuntimeSeconds = [int](Get-ConfigValue -Config $config -PathSegments @('feature_monitor', 'max_runtime_seconds') -DefaultValue 15)
 $featureLogEveryNFrames = [int](Get-ConfigValue -Config $config -PathSegments @('feature_monitor', 'log_every_n_frames') -DefaultValue 10)
+$featureSkipInitialFrames = [int](Get-ConfigValue -Config $config -PathSegments @('feature_monitor', 'skip_initial_frames') -DefaultValue 0)
 $featureMaxFeatures = [int](Get-ConfigValue -Config $config -PathSegments @('feature_monitor', 'max_features') -DefaultValue 500)
 $featureGridRows = [int](Get-ConfigValue -Config $config -PathSegments @('feature_monitor', 'grid_rows') -DefaultValue 4)
 $featureGridCols = [int](Get-ConfigValue -Config $config -PathSegments @('feature_monitor', 'grid_cols') -DefaultValue 4)
@@ -160,6 +163,7 @@ if (-not $SkipFeatureReport) {
     -RequiredFrames $featureRequiredFrames `
     -MaxRuntimeSeconds $featureMaxRuntimeSeconds `
     -LogEveryNFrames $featureLogEveryNFrames `
+    -SkipInitialFrames $featureSkipInitialFrames `
     -MaxFeatures $featureMaxFeatures `
     -GridRows $featureGridRows `
     -GridCols $featureGridCols `

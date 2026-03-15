@@ -17,6 +17,7 @@
     "working_directory": "{experiment_root}",
     "timeout_seconds": 30,
     "trajectory_path": "backend_artifacts/mock_trajectory.csv",
+    "trajectory_format": "csv_pose_v1",
     "map_path": "backend_artifacts/mock_map.json",
     "runtime_log_path": "backend_artifacts/mock_runtime.log",
     "result_notes": "Smoke-конфигурация для проверки backend runner.",

@@ -61,6 +61,7 @@ if (-not (Test-Path $reportPath)) {
   -OutputFile $featureReportPath `
   -RequiredFrames 10 `
   -MaxRuntimeSeconds 15 `
+  -SkipInitialFrames 10 `
   -MinAverageKeypoints 60 `
   -MinAverageGridCoverageRatio 0.20 `
   -MinAverageBlurScore 20.0 `

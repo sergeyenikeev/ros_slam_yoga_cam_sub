@@ -32,9 +32,10 @@ public:
     start_time_ = this->now();
     RCLCPP_INFO(
       this->get_logger(),
-      "Узел camera_feature_monitor запущен. image_topic=%s required_frames=%d max_runtime_seconds=%d min_average_keypoints=%d min_average_grid_coverage_ratio=%.2f min_average_blur_score=%.2f min_average_brightness_mean=%.2f.",
+      "Узел camera_feature_monitor запущен. image_topic=%s required_frames=%d skip_initial_frames=%d max_runtime_seconds=%d min_average_keypoints=%d min_average_grid_coverage_ratio=%.2f min_average_blur_score=%.2f min_average_brightness_mean=%.2f.",
       image_topic_.c_str(),
       required_frames_,
+      skip_initial_frames_,
       max_runtime_seconds_,
       thresholds_.min_average_keypoints,
       thresholds_.min_average_grid_coverage_ratio,
@@ -56,6 +57,8 @@ private:
       static_cast<int>(this->declare_parameter<std::int64_t>("max_runtime_seconds", 20));
     log_every_n_frames_ =
       static_cast<int>(this->declare_parameter<std::int64_t>("log_every_n_frames", 10));
+    skip_initial_frames_ =
+      static_cast<int>(this->declare_parameter<std::int64_t>("skip_initial_frames", 0));
     max_features_ = static_cast<int>(this->declare_parameter<std::int64_t>("max_features", 500));
     grid_rows_ = static_cast<int>(this->declare_parameter<std::int64_t>("grid_rows", 4));
     grid_cols_ = static_cast<int>(this->declare_parameter<std::int64_t>("grid_cols", 4));
@@ -84,6 +87,9 @@ private:
     if (log_every_n_frames_ <= 0) {
       throw std::invalid_argument("Параметр log_every_n_frames должен быть положительным.");
     }
+    if (skip_initial_frames_ < 0) {
+      throw std::invalid_argument("Параметр skip_initial_frames не может быть отрицательным.");
+    }
     if (max_features_ <= 0) {
       throw std::invalid_argument("Параметр max_features должен быть положительным.");
     }
@@ -104,6 +110,25 @@ private:
   void on_image(const sensor_msgs::msg::Image::SharedPtr message)
   {
     if (finished_) {
+      return;
+    }
+
+    ++received_image_count_;
+    if (received_image_count_ <= static_cast<std::size_t>(skip_initial_frames_)) {
+      // Для offline bag-проверок это помогает отбрасывать тёмные/нестабильные
+      // кадры в начале записи, пока камера и автоэкспозиция ещё не прогрелись.
+      if (received_image_count_ == 1U ||
+        received_image_count_ == static_cast<std::size_t>(skip_initial_frames_) ||
+        received_image_count_ % static_cast<std::size_t>(log_every_n_frames_) == 0U)
+      {
+        RCLCPP_INFO(
+          this->get_logger(),
+          "Feature monitor пропускает прогревочный кадр #%zu/%d: frame_id=%s encoding=%s.",
+          received_image_count_,
+          skip_initial_frames_,
+          message->header.frame_id.c_str(),
+          message->encoding.c_str());
+      }
       return;
     }
 
@@ -157,6 +182,8 @@ private:
       register_error(
         "Не набрано требуемое число кадров для feature-мониторинга: received=" +
         std::to_string(image_count_) +
+        " raw_received=" + std::to_string(received_image_count_) +
+        " skipped=" + std::to_string(skip_initial_frames_) +
         " required=" + std::to_string(required_frames_) + ".");
     }
 
@@ -225,11 +252,13 @@ private:
   int required_frames_{20};
   int max_runtime_seconds_{20};
   int log_every_n_frames_{10};
+  int skip_initial_frames_{0};
   int max_features_{500};
   int grid_rows_{4};
   int grid_cols_{4};
   int exit_code_{1};
   bool finished_{false};
+  std::size_t received_image_count_{0};
   std::size_t image_count_{0};
   std::string last_encoding_;
   std::string last_frame_id_;

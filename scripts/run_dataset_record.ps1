@@ -49,7 +49,7 @@ function Stop-LingeringProjectProcesses {
 
   $targets = Get-CimInstance Win32_Process | Where-Object {
     $_.Name -match 'camera_publisher|static_transform_publisher|image_counter|camera_slam_preflight|ros2|python' -and
-    $_.CommandLine -match 'yoga_cam_sub|camera_slam_ready|camera_publisher|camera_slam_preflight|image_counter|ros2 bag record|ros2 bag play|artifacts/datasets|dataset_playback'
+    $_.CommandLine -match 'yoga_cam_sub|camera_slam_ready|camera_publisher|camera_slam_preflight|image_counter|ros2 bag record|ros2 bag play|ros2 topic pub|artifacts/datasets|dataset_playback|smoke_tests|test_camera'
   }
 
   if (-not $targets) {

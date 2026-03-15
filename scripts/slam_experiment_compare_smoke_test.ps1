@@ -21,6 +21,35 @@ function Get-ValidExperimentDirectories {
       Sort-Object LastWriteTime -Descending)
 }
 
+function Get-TrajectoryComparableExperimentDirectories {
+  param([string]$RootPath)
+
+  $candidates = Get-ValidExperimentDirectories -RootPath $RootPath
+  $comparable = [System.Collections.Generic.List[object]]::new()
+
+  foreach ($candidate in $candidates) {
+    $manifestPath = Join-Path $candidate.FullName 'experiment_manifest.json'
+    $manifest = Get-Content -Path $manifestPath -Raw -Encoding UTF8 | ConvertFrom-Json
+    $trajectoryAnalysisSuccess = $false
+    if ($manifest.PSObject.Properties['backend_result'] -and
+      $manifest.backend_result.PSObject.Properties['analysis'] -and
+      $manifest.backend_result.analysis.PSObject.Properties['trajectory']) {
+      $trajectoryAnalysisSuccess = [bool]$manifest.backend_result.analysis.trajectory.success
+    }
+
+    # Для compare smoke берём только те пакеты, где backend уже дошёл до
+    # нормализованного trajectory-report. Иначе мы проверяли бы не trajectory compare,
+    # а просто факт наличия каких-то experiment manifest.
+    if ($trajectoryAnalysisSuccess) {
+      $comparable.Add($candidate)
+    }
+  }
+
+  # Возвращаем обычный массив, а не "массив как один объект", чтобы дальше
+  # можно было безопасно делать Select-Object -First 2 и получать каталоги, а не контейнер.
+  return @($comparable.ToArray())
+}
+
 if ([string]::IsNullOrWhiteSpace($BagPath)) {
   $latestDataset = Get-ChildItem -Path (Join-Path $packageRoot 'artifacts\datasets') -Directory |
     Sort-Object LastWriteTime -Descending |
@@ -31,10 +60,10 @@ if ([string]::IsNullOrWhiteSpace($BagPath)) {
   $BagPath = Join-Path $latestDataset.FullName 'bag'
 }
 
-$existingExperiments = Get-ValidExperimentDirectories -RootPath $experimentsRoot
+$existingExperiments = Get-TrajectoryComparableExperimentDirectories -RootPath $experimentsRoot
 
-# Для надёжного smoke-теста нам нужно минимум два experiment manifest.
-# Если их ещё нет, создаём недостающие пакеты поверх одного и того же bag.
+# Для smoke-сравнения trajectory нам нужны два эксперимента, где backend runner
+# уже сохранил валидный trajectory report по одному и тому же контракту CSV.
 $neededExperiments = [Math]::Max(0, 2 - $existingExperiments.Count)
 for ($index = 0; $index -lt $neededExperiments; $index++) {
   $experimentName = 'compare_smoke_' + (Get-Date -Format 'yyyyMMdd_HHmmss') + "_$index"
@@ -42,12 +71,15 @@ for ($index = 0; $index -lt $neededExperiments; $index++) {
     -BagPath $BagPath `
     -ExperimentName $experimentName `
     -ConfigFile 'config/slam_experiment.template.json'
+  & (Join-Path $PSScriptRoot 'run_slam_backend.ps1') `
+    -ExperimentPath (Join-Path $experimentsRoot $experimentName) `
+    -ConfigFile 'config/slam_backend.mock.template.json'
   Start-Sleep -Seconds 1
 }
 
-$experimentsToCompare = @(Get-ValidExperimentDirectories -RootPath $experimentsRoot | Select-Object -First 2)
+$experimentsToCompare = @(Get-TrajectoryComparableExperimentDirectories -RootPath $experimentsRoot | Select-Object -First 2)
 if ($experimentsToCompare.Count -lt 2) {
-  throw 'Smoke-тест сравнения экспериментов не нашёл два доступных эксперимента.'
+  throw 'Smoke-тест сравнения экспериментов не нашёл два доступных эксперимента с trajectory report.'
 }
 
 $comparisonName = 'compare_smoke_' + (Get-Date -Format 'yyyyMMdd_HHmmss')
@@ -73,6 +105,9 @@ if (-not $comparison.metrics.average_fps) {
 }
 if (-not $comparison.backend) {
   throw 'Smoke-тест сравнения экспериментов не нашёл секцию backend в comparison.json.'
+}
+if (-not $comparison.trajectory.path_length_m) {
+  throw 'Smoke-тест сравнения экспериментов не нашёл trajectory.path_length_m в comparison.json.'
 }
 
 Write-Host '[ИНФО] Smoke-тест сравнения экспериментов завершён успешно.'

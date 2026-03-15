@@ -79,7 +79,12 @@ function Start-RosProcess {
   foreach ($argument in $RosArguments) {
     $commandParts += (ConvertTo-PowerShellLiteral -Value $argument)
   }
-  $commandText = ($commandParts -join ' ') + '; exit $LASTEXITCODE'
+  # Держим UTF-8 и в smoke-сценариях, чтобы русские логи узлов можно было
+  # безопасно парсить из файлов без ложных сбоев по кодировке.
+  $commandText =
+    "[Console]::InputEncoding = [System.Text.UTF8Encoding]::UTF8; " +
+    "[Console]::OutputEncoding = [System.Text.UTF8Encoding]::UTF8; " +
+    ($commandParts -join ' ') + '; exit $LASTEXITCODE'
 
   return Start-Process `
     -FilePath 'powershell.exe' `
@@ -116,10 +121,10 @@ function Get-CombinedLogText {
 
   $combined = ''
   if (Test-Path $StdoutPath) {
-    $combined += Get-Content $StdoutPath -Raw
+    $combined += Get-Content $StdoutPath -Raw -Encoding UTF8
   }
   if (Test-Path $StderrPath) {
-    $combined += "`n" + (Get-Content $StderrPath -Raw)
+    $combined += "`n" + (Get-Content $StderrPath -Raw -Encoding UTF8)
   }
   return $combined
 }
@@ -216,5 +221,6 @@ try {
 }
 finally {
   Stop-ProcessTree -Process $process -ProcessName 'image_counter'
+  Stop-LingeringProjectProcesses -Reason 'завершение smoke-теста image_counter'
 }
 

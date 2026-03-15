@@ -62,6 +62,50 @@ TEST(StreamDiagnostics, RejectsNonMonotonicTimestamps)
     std::invalid_argument);
 }
 
+TEST(StreamDiagnostics, KeepsValidSourceTimestampDuringNormalization)
+{
+  const auto normalized = yoga_cam_sub::normalize_message_timestamp(42, 100, 10);
+
+  EXPECT_EQ(normalized.timestamp_ns, 42);
+  EXPECT_FALSE(normalized.source_stamp_missing);
+  EXPECT_FALSE(normalized.source_stamp_non_monotonic);
+  EXPECT_FALSE(normalized.fallback_stamp_used);
+  EXPECT_FALSE(normalized.synthesized_monotonic_tick);
+}
+
+TEST(StreamDiagnostics, UsesFallbackWhenSourceTimestampMissing)
+{
+  const auto normalized = yoga_cam_sub::normalize_message_timestamp(0, 120, 10);
+
+  EXPECT_EQ(normalized.timestamp_ns, 120);
+  EXPECT_TRUE(normalized.source_stamp_missing);
+  EXPECT_FALSE(normalized.source_stamp_non_monotonic);
+  EXPECT_TRUE(normalized.fallback_stamp_used);
+  EXPECT_FALSE(normalized.synthesized_monotonic_tick);
+}
+
+TEST(StreamDiagnostics, RepairsNonMonotonicSourceTimestampWithFallback)
+{
+  const auto normalized = yoga_cam_sub::normalize_message_timestamp(80, 130, 100);
+
+  EXPECT_EQ(normalized.timestamp_ns, 130);
+  EXPECT_FALSE(normalized.source_stamp_missing);
+  EXPECT_TRUE(normalized.source_stamp_non_monotonic);
+  EXPECT_TRUE(normalized.fallback_stamp_used);
+  EXPECT_FALSE(normalized.synthesized_monotonic_tick);
+}
+
+TEST(StreamDiagnostics, SynthesizesMinimalTickWhenFallbackAlsoStale)
+{
+  const auto normalized = yoga_cam_sub::normalize_message_timestamp(80, 90, 100);
+
+  EXPECT_EQ(normalized.timestamp_ns, 101);
+  EXPECT_FALSE(normalized.source_stamp_missing);
+  EXPECT_TRUE(normalized.source_stamp_non_monotonic);
+  EXPECT_FALSE(normalized.fallback_stamp_used);
+  EXPECT_TRUE(normalized.synthesized_monotonic_tick);
+}
+
 TEST(StreamDiagnostics, ValidatesMatchingImageAndCameraInfo)
 {
   const auto image = make_image_message(640U, 360U, "camera_optical_frame", "bgr8");

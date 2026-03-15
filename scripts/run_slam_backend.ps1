@@ -21,6 +21,7 @@ $ErrorActionPreference = 'Stop'
 $packageRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 . (Join-Path $PSScriptRoot 'process_utils.ps1')
 . (Join-Path $PSScriptRoot 'slam_experiment_utils.ps1')
+. (Join-Path $PSScriptRoot 'trajectory_report_utils.ps1')
 
 function Get-ConfigValue {
   param(
@@ -205,6 +206,7 @@ $effectiveTrajectoryPathTemplate = if (-not [string]::IsNullOrWhiteSpace($Trajec
 } else {
   [string](Get-ConfigValue -Config $backendConfig -PathSegments @('trajectory_path') -DefaultValue '')
 }
+$effectiveTrajectoryFormat = [string](Get-ConfigValue -Config $backendConfig -PathSegments @('trajectory_format') -DefaultValue '')
 $effectiveMapPathTemplate = if (-not [string]::IsNullOrWhiteSpace($MapPath)) {
   $MapPath
 } else {
@@ -235,6 +237,8 @@ New-Item -ItemType Directory -Force -Path $backendRoot | Out-Null
 $stdoutLogPath = Join-Path $backendRoot 'backend_stdout.log'
 $stderrLogPath = Join-Path $backendRoot 'backend_stderr.log'
 
+# Весь runtime backend привязываем к единому templateContext, чтобы один и тот же
+# config-шаблон можно было воспроизводимо запускать на разных experiment packet.
 $templateContext = @{
   experiment_root = $experimentRoot
   experiment_name = $manifest.experiment_name
@@ -328,6 +332,54 @@ Write-Utf8File -Path $stderrLogPath -Lines $processResult.StdErrLines
 $trajectoryFound = (-not [string]::IsNullOrWhiteSpace($templateContext.trajectory_path)) -and (Test-Path $templateContext.trajectory_path)
 $mapFound = (-not [string]::IsNullOrWhiteSpace($templateContext.map_path)) -and (Test-Path $templateContext.map_path)
 $runtimeLogFound = (-not [string]::IsNullOrWhiteSpace($templateContext.runtime_log_path)) -and (Test-Path $templateContext.runtime_log_path)
+$trajectoryReportPath = Get-TrajectoryReportPath -ExperimentRoot $experimentRoot
+$trajectorySummaryPath = Get-TrajectorySummaryPath -ExperimentRoot $experimentRoot
+$trajectoryAnalysis = [ordered]@{
+  success = $false
+  format = $effectiveTrajectoryFormat
+  report_path = ''
+  summary_path = ''
+  error_message = ''
+}
+
+if ($trajectoryFound) {
+  # Даже если runner сам завершился с кодом 0, отсутствие нормализованного
+  # trajectory-report считаем проблемой: без него baseline/candidate сравнивать сложнее.
+  if ([string]::IsNullOrWhiteSpace($effectiveTrajectoryFormat)) {
+    $trajectoryAnalysis.error_message = 'Для найденного trajectory не задан trajectory_format в конфигурации backend runner.'
+    Write-Host "[ПРЕДУПРЕЖДЕНИЕ] $($trajectoryAnalysis.error_message)"
+  } elseif ($effectiveTrajectoryFormat -eq 'csv_pose_v1') {
+    try {
+      # Trajectory переводим в единый отчёт сразу после backend run, чтобы
+      # сравнение экспериментов не зависело от конкретного backend и его логов.
+      $trajectorySamples = Read-CsvPoseV1Trajectory -Path $templateContext.trajectory_path
+      $trajectoryReport = Measure-CsvPoseV1Trajectory `
+        -Samples $trajectorySamples `
+        -TrajectoryPath $templateContext.trajectory_path `
+        -BackendName $effectiveBackendName
+      Write-TrajectoryReportArtifacts `
+        -TrajectoryReport $trajectoryReport `
+        -ReportPath $trajectoryReportPath `
+        -SummaryPath $trajectorySummaryPath
+
+      $trajectoryAnalysis = [ordered]@{
+        success = $true
+        format = $effectiveTrajectoryFormat
+        report_path = $trajectoryReportPath
+        summary_path = $trajectorySummaryPath
+        error_message = ''
+        metrics = $trajectoryReport
+      }
+    }
+    catch {
+      $trajectoryAnalysis.error_message = $_.Exception.Message
+      Write-Host "[ПРЕДУПРЕЖДЕНИЕ] Не удалось построить trajectory report: $($trajectoryAnalysis.error_message)"
+    }
+  } else {
+    $trajectoryAnalysis.error_message = "Неподдерживаемый trajectory_format '$effectiveTrajectoryFormat'."
+    Write-Host "[ПРЕДУПРЕЖДЕНИЕ] $($trajectoryAnalysis.error_message)"
+  }
+}
 
 $expectedArtifactsOkay = $true
 foreach ($artifactCheck in @(
@@ -340,9 +392,14 @@ foreach ($artifactCheck in @(
     Write-Host "[ПРЕДУПРЕЖДЕНИЕ] Backend не создал ожидаемый артефакт $($artifactCheck.Name): $($artifactCheck.Path)"
   }
 }
+if ($trajectoryFound -and -not $trajectoryAnalysis.success) {
+  $expectedArtifactsOkay = $false
+}
 
 $backendRunSuccess = (-not $processResult.TimedOut) -and ($processResult.ExitCode -eq 0) -and $expectedArtifactsOkay
 $manifest.experiment.slam_backend = $effectiveBackendName
+# Manifest сохраняет не только факт запуска backend, но и нормализованную
+# аналитическую сводку, чтобы compare/catalog не читали сырые backend-логи повторно.
 $manifest.backend_result = [ordered]@{
   trajectory_path = $templateContext.trajectory_path
   map_path = $templateContext.map_path
@@ -355,6 +412,7 @@ $manifest.backend_result = [ordered]@{
     arguments = $resolvedArgumentValues
     working_directory = $resolvedWorkingDirectory
     timeout_seconds = $effectiveTimeoutSeconds
+    trajectory_format = $effectiveTrajectoryFormat
     allow_failure = $effectiveAllowFailure
     started_at_utc = $startedAt.ToUniversalTime().ToString('o')
     finished_at_utc = $finishedAt.ToUniversalTime().ToString('o')
@@ -369,6 +427,9 @@ $manifest.backend_result = [ordered]@{
     trajectory_found = $trajectoryFound
     map_found = $mapFound
     runtime_log_found = $runtimeLogFound
+  }
+  analysis = [ordered]@{
+    trajectory = $trajectoryAnalysis
   }
 }
 

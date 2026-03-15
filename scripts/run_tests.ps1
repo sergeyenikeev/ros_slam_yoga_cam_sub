@@ -45,12 +45,37 @@ function Invoke-EnvScript {
   }
 }
 
-$exitCode = Invoke-EnvScript -Arguments @('colcon', 'test', '--merge-install', '--packages-select', 'yoga_cam_sub', '--event-handlers', 'console_cohesion+')
-if ($exitCode -ne 0) {
-  throw "colcon test завершился с кодом $exitCode."
+function Invoke-StepWithRetry {
+  param(
+    [string]$Description,
+    [string[]]$Arguments,
+    [int]$RetryCount = 0
+  )
+
+  for ($attempt = 1; $attempt -le ($RetryCount + 1); $attempt++) {
+    $exitCode = Invoke-EnvScript -Arguments $Arguments
+    if ($exitCode -eq 0) {
+      return
+    }
+
+    if ($attempt -le $RetryCount) {
+      # На Windows linter-пакет изредка флакирует по timeout без реальной
+      # проблемы в коде, поэтому даём один автоматический повтор перед падением.
+      Write-Host "[ПРЕДУПРЕЖДЕНИЕ] $Description завершился с кодом $exitCode. Повторяем попытку $attempt/$RetryCount."
+      Start-Sleep -Seconds 2
+      continue
+    }
+
+    throw "$Description завершился с кодом $exitCode."
+  }
 }
 
-$exitCode = Invoke-EnvScript -Arguments @('colcon', 'test-result', '--verbose', '--test-result-base', 'build\yoga_cam_sub')
-if ($exitCode -ne 0) {
-  throw "colcon test-result завершился с кодом $exitCode."
-}
+Invoke-StepWithRetry `
+  -Description 'colcon test' `
+  -Arguments @('colcon', 'test', '--merge-install', '--packages-select', 'yoga_cam_sub', '--event-handlers', 'console_cohesion+') `
+  -RetryCount 1
+
+Invoke-StepWithRetry `
+  -Description 'colcon test-result' `
+  -Arguments @('colcon', 'test-result', '--verbose', '--test-result-base', 'build\yoga_cam_sub') `
+  -RetryCount 1

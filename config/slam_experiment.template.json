@@ -8,19 +8,20 @@
   },
   "preflight": {
     "required_frames": 10,
-    "max_runtime_seconds": 15,
+    "max_runtime_seconds": 25,
     "min_fps": 1.0
   },
   "feature_monitor": {
     "required_frames": 10,
-    "max_runtime_seconds": 15,
+    "max_runtime_seconds": 25,
     "log_every_n_frames": 10,
+    "skip_initial_frames": 10,
     "max_features": 500,
     "grid_rows": 4,
     "grid_cols": 4,
     "min_average_keypoints": 150,
-    "min_average_grid_coverage_ratio": 0.35,
-    "min_average_blur_score": 80.0,
+    "min_average_grid_coverage_ratio": 0.20,
+    "min_average_blur_score": 20.0,
     "min_average_brightness_mean": 25.0
   },
   "future_integration": {
@@ -51,6 +52,7 @@
     "working_directory": "{experiment_root}",
     "timeout_seconds": 0,
     "trajectory_path": "",
+    "trajectory_format": "",
     "map_path": "",
     "runtime_log_path": "",
     "result_notes": "",

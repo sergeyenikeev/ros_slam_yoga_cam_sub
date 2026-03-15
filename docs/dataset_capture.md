@@ -89,7 +89,7 @@ Rosbag-датасет полезен в трёх сценариях:
 ### 4. Проверить, достаточно ли visual-feature в recorded bag
 
 ```powershell
-.\scripts\run_dataset_playback.ps1 -BagPath C:\путь\к\bag -RunFeatureMonitor -FeatureRequiredFrames 10
+.\scripts\run_dataset_playback.ps1 -BagPath C:\путь\к\bag -RunFeatureMonitor -FeatureRequiredFrames 10 -FeatureSkipInitialFrames 10
 ```
 
 ## Автоматический smoke-тест
@@ -146,6 +146,7 @@ Smoke-тест:
 ```
 
 Скрипт повторно воспроизводит bag, извлекает `Feature summary` из `camera_feature_monitor` и записывает JSON-отчёт в каталог `reports/` рядом с датасетом.
+По умолчанию он пропускает первые 10 кадров как прогревочные, чтобы автоэкспозиция не ломала smoke-проверки и baseline-метрики.
 
 В этом отчёте полезно смотреть на:
 

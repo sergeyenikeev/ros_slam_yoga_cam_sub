@@ -116,7 +116,7 @@ private:
   void on_image(const sensor_msgs::msg::Image::SharedPtr message)
   {
     ++image_count_;
-    image_timestamps_ns_.push_back(resolve_timestamp_ns(*message));
+    record_timestamps(*message);
     last_encoding_ = message->encoding;
     last_frame_id_ = message->header.frame_id;
 
@@ -155,14 +155,57 @@ private:
     }
   }
 
-  std::int64_t resolve_timestamp_ns(const sensor_msgs::msg::Image & message) const
+  void record_timestamps(const sensor_msgs::msg::Image & message)
   {
-    const std::int64_t stamp_ns =
+    const std::int64_t receive_stamp_ns = this->now().nanoseconds();
+    const auto normalized_receive_timestamp = yoga_cam_sub::normalize_message_timestamp(
+      receive_stamp_ns,
+      receive_stamp_ns,
+      last_receive_timestamp_ns_);
+    image_receive_timestamps_ns_.push_back(normalized_receive_timestamp.timestamp_ns);
+    last_receive_timestamp_ns_ = normalized_receive_timestamp.timestamp_ns;
+
+    if (normalized_receive_timestamp.synthesized_monotonic_tick) {
+      ++synthetic_receive_stamp_count_;
+      RCLCPP_WARN_THROTTLE(
+        this->get_logger(),
+        *this->get_clock(),
+        5000,
+        "Время получения сообщений совпало или не возросло; добавляем минимальный монотонный шаг +1 нс.");
+    }
+
+    const std::int64_t source_stamp_ns = extract_source_timestamp_ns(message);
+    if (source_stamp_ns <= 0) {
+      source_timestamps_usable_ = false;
+      ++missing_source_stamp_count_;
+      RCLCPP_WARN_THROTTLE(
+        this->get_logger(),
+        *this->get_clock(),
+        5000,
+        "Image header.stamp отсутствует или равен нулю; для timing-метрик используем время получения сообщения.");
+      return;
+    }
+
+    if (last_source_timestamp_ns_ > 0 && source_stamp_ns <= last_source_timestamp_ns_) {
+      source_timestamps_usable_ = false;
+      ++non_monotonic_source_stamp_count_;
+      RCLCPP_WARN_THROTTLE(
+        this->get_logger(),
+        *this->get_clock(),
+        5000,
+        "Image header.stamp не возрастает монотонно; для timing-метрик переключаемся на время получения сообщения.");
+      return;
+    }
+
+    image_source_timestamps_ns_.push_back(source_stamp_ns);
+    last_source_timestamp_ns_ = source_stamp_ns;
+  }
+
+  std::int64_t extract_source_timestamp_ns(const sensor_msgs::msg::Image & message) const
+  {
+    return
       static_cast<std::int64_t>(message.header.stamp.sec) * 1'000'000'000LL +
       static_cast<std::int64_t>(message.header.stamp.nanosec);
-
-    // Если upstream не проставил stamp, используем время получения, чтобы всё равно оценить поток.
-    return stamp_ns > 0 ? stamp_ns : this->now().nanoseconds();
   }
 
   void register_error(const std::string & error)
@@ -181,10 +224,19 @@ private:
     finished_ = true;
 
     try {
-      const auto timing_statistics = yoga_cam_sub::calculate_timing_statistics(image_timestamps_ns_);
+      // Если исходные stamp оказались ненадёжными, считаем timing по времени
+      // получения сообщений. Это даёт честную оценку воспроизведения bag/live-потока.
+      const bool use_source_timestamps =
+        source_timestamps_usable_ &&
+        image_source_timestamps_ns_.size() == image_count_ &&
+        image_source_timestamps_ns_.size() >= 2U;
+      const auto & timing_timestamps = use_source_timestamps ?
+        image_source_timestamps_ns_ :
+        image_receive_timestamps_ns_;
+      const auto timing_statistics = yoga_cam_sub::calculate_timing_statistics(timing_timestamps);
       RCLCPP_INFO(
         this->get_logger(),
-        "Preflight summary: images=%zu camera_infos=%zu average_fps=%.2f mean_period_ms=%.2f min_period_ms=%.2f max_period_ms=%.2f stddev_period_ms=%.2f frame_id=%s encoding=%s.",
+        "Preflight summary: images=%zu camera_infos=%zu average_fps=%.2f mean_period_ms=%.2f min_period_ms=%.2f max_period_ms=%.2f stddev_period_ms=%.2f frame_id=%s encoding=%s timing_source=%s missing_source_stamps=%zu non_monotonic_source_stamps=%zu synthetic_receive_ticks=%zu.",
         image_count_,
         camera_info_count_,
         timing_statistics.average_fps,
@@ -193,7 +245,11 @@ private:
         timing_statistics.max_period_ms,
         timing_statistics.stddev_period_ms,
         last_frame_id_.c_str(),
-        last_encoding_.c_str());
+        last_encoding_.c_str(),
+        use_source_timestamps ? "header.stamp" : "receive_time",
+        missing_source_stamp_count_,
+        non_monotonic_source_stamp_count_,
+        synthetic_receive_stamp_count_);
 
       if (timing_statistics.average_fps < min_fps_) {
         register_error(
@@ -262,10 +318,17 @@ private:
   bool has_camera_info_{false};
   std::size_t image_count_{0};
   std::size_t camera_info_count_{0};
-  std::vector<std::int64_t> image_timestamps_ns_;
+  std::vector<std::int64_t> image_source_timestamps_ns_;
+  std::vector<std::int64_t> image_receive_timestamps_ns_;
   std::set<std::string> validation_errors_;
   std::string last_encoding_;
   std::string last_frame_id_;
+  bool source_timestamps_usable_{true};
+  std::int64_t last_source_timestamp_ns_{0};
+  std::int64_t last_receive_timestamp_ns_{0};
+  std::size_t missing_source_stamp_count_{0};
+  std::size_t non_monotonic_source_stamp_count_{0};
+  std::size_t synthetic_receive_stamp_count_{0};
   rclcpp::Time start_time_;
   sensor_msgs::msg::CameraInfo latest_camera_info_;
   rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr image_sub_;

@@ -24,6 +24,8 @@ $manifestPath = Join-Path $experimentRoot 'experiment_manifest.json'
 $summaryPath = Join-Path $experimentRoot 'experiment_summary.md'
 $backendResultPath = Join-Path $experimentRoot 'backend_artifacts\backend_result.json'
 $trajectoryPath = Join-Path $experimentRoot 'backend_artifacts\mock_trajectory.csv'
+$trajectoryReportPath = Join-Path $experimentRoot 'reports\trajectory_report.json'
+$trajectorySummaryPath = Join-Path $experimentRoot 'reports\trajectory_report.md'
 $mapPath = Join-Path $experimentRoot 'backend_artifacts\mock_map.json'
 $runtimeLogPath = Join-Path $experimentRoot 'backend_artifacts\mock_runtime.log'
 $catalogJsonPath = Join-Path $packageRoot 'artifacts\slam_experiments\slam_experiment_catalog.json'
@@ -40,7 +42,9 @@ Write-Host '[ИНФО] Запускаем smoke-тест backend runner для m
   -ExperimentPath $experimentRoot `
   -ConfigFile 'config/slam_backend.mock.template.json'
 
-foreach ($path in @($manifestPath, $summaryPath, $backendResultPath, $trajectoryPath, $mapPath, $runtimeLogPath, $catalogJsonPath, $catalogMarkdownPath, $catalogCsvPath)) {
+# Проверяем не только сырые артефакты mock-backend, но и нормализованный слой,
+# который нужен для catalog/compare без повторного чтения backend-логов.
+foreach ($path in @($manifestPath, $summaryPath, $backendResultPath, $trajectoryPath, $trajectoryReportPath, $trajectorySummaryPath, $mapPath, $runtimeLogPath, $catalogJsonPath, $catalogMarkdownPath, $catalogCsvPath)) {
   if (-not (Test-Path $path)) {
     throw "Smoke-тест backend runner не нашёл ожидаемый файл: $path"
   }
@@ -55,6 +59,12 @@ if (-not $manifest.backend_result.artifacts.trajectory_found) {
 }
 if (-not $manifest.backend_result.artifacts.map_found) {
   throw 'Smoke-тест backend runner не подтвердил map_found=true.'
+}
+if (-not $manifest.backend_result.analysis.trajectory.success) {
+  throw 'Smoke-тест backend runner не подтвердил успешный trajectory-анализ.'
+}
+if ($manifest.backend_result.analysis.trajectory.metrics.path_length_m -le 0.0) {
+  throw 'Smoke-тест backend runner получил неположительную длину trajectory.'
 }
 
 Write-Host '[ИНФО] Smoke-тест backend runner завершён успешно.'

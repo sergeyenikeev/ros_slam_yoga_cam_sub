@@ -19,6 +19,8 @@
 - автоматическое обновление общего каталога экспериментов.
 
 Теперь следующий слой тоже уже подготовлен: отдельный backend runner умеет запускать внешний SLAM backend поверх готового experiment packet.
+Если backend сохраняет trajectory в формате `csv_pose_v1`, workflow автоматически строит отдельный trajectory-report и включает его в manifest.
+Для feature-report шаблонный конфиг дополнительно пропускает первые 10 кадров bag как прогревочные, чтобы автоэкспозиция ноутбучной камеры не делала smoke-прогоны флак.
 
 Это делает дальнейшую интеграцию реального SLAM backend воспроизводимой.
 
@@ -100,6 +102,15 @@ artifacts/slam_experiments/slam_experiment_<timestamp>/
 - `average_brightness`;
 - ручная оценка `tracking_lost` и `map_quality`, если она уже заполнена.
 
+Если оба эксперимента уже имеют trajectory-report от backend runner, comparison дополнительно включает:
+
+- `trajectory_sample_count`;
+- `trajectory_duration_sec`;
+- `trajectory_path_length_m`;
+- `trajectory_net_displacement_m`;
+- `trajectory_mean_speed_mps`;
+- `trajectory_max_step_m`.
+
 Для быстрой проверки есть отдельный smoke-тест:
 
 ```powershell
@@ -121,6 +132,8 @@ artifacts/slam_experiments/slam_experiment_<timestamp>/
 - `backend_artifacts/backend_stdout.log`
 - `backend_artifacts/backend_stderr.log`
 - `backend_artifacts/backend_result.json`
+- `reports/trajectory_report.json`
+- `reports/trajectory_report.md`
 - `experiment_manifest.json`
 - `experiment_summary.md`
 - общий реестр экспериментов в JSON/Markdown/CSV
@@ -139,6 +152,7 @@ artifacts/slam_experiments/slam_experiment_<timestamp>/
 
 - есть `run_slam_backend.ps1` для запуска внешнего backend;
 - есть `mock_slam_backend.ps1` и smoke-проверка orchestration;
+- есть автоматический trajectory-report и offline-сравнение trajectory-метрик;
 - каталог экспериментов теперь экспортируется не только в JSON, но и в Markdown/CSV.
 
 То есть этот workflow уже можно считать каркасом для полноценного `SLAM experiment registry`.

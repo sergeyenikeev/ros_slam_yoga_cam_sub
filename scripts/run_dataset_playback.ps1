@@ -14,6 +14,7 @@ param(
   [int]$FeatureRequiredFrames = 20,
   [int]$FeatureMaxRuntimeSeconds = 15,
   [int]$FeatureLogEveryNFrames = 10,
+  [int]$FeatureSkipInitialFrames = 0,
   [int]$FeatureMaxFeatures = 500,
   [int]$FeatureGridRows = 4,
   [int]$FeatureGridCols = 4,
@@ -87,7 +88,7 @@ function Stop-LingeringProjectProcesses {
 
   $targets = Get-CimInstance Win32_Process | Where-Object {
     $_.Name -match 'camera_publisher|static_transform_publisher|image_counter|camera_slam_preflight|camera_feature_monitor|ros2|python' -and
-    $_.CommandLine -match 'yoga_cam_sub|camera_slam_ready|camera_publisher|camera_slam_preflight|camera_feature_monitor|image_counter|ros2 bag record|ros2 bag play|artifacts/datasets|dataset_playback'
+    $_.CommandLine -match 'yoga_cam_sub|camera_slam_ready|camera_publisher|camera_slam_preflight|camera_feature_monitor|image_counter|ros2 bag record|ros2 bag play|ros2 topic pub|artifacts/datasets|dataset_playback|smoke_tests|test_camera'
   }
 
   if (-not $targets) {
@@ -123,7 +124,12 @@ function Start-RosProcess {
   foreach ($argument in $RosArguments) {
     $commandParts += (ConvertTo-PowerShellLiteral -Value $argument)
   }
-  $commandText = ($commandParts -join ' ') + '; exit $LASTEXITCODE'
+  # Явно включаем UTF-8, иначе в stderr-файлах Windows PowerShell может
+  # превратить русские логи нод в mojibake и сломать поиск success-pattern.
+  $commandText =
+    "[Console]::InputEncoding = [System.Text.UTF8Encoding]::UTF8; " +
+    "[Console]::OutputEncoding = [System.Text.UTF8Encoding]::UTF8; " +
+    ($commandParts -join ' ') + '; exit $LASTEXITCODE'
 
   return Start-Process `
     -FilePath 'powershell.exe' `
@@ -145,13 +151,7 @@ function Wait-ForLogPattern {
 
   $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
   while ((Get-Date) -lt $deadline) {
-    $combinedLogs = ''
-    if (Test-Path $StdoutPath) {
-      $combinedLogs += Get-Content $StdoutPath -Raw -Encoding UTF8
-    }
-    if (Test-Path $StderrPath) {
-      $combinedLogs += "`n" + (Get-Content $StderrPath -Raw -Encoding UTF8)
-    }
+    $combinedLogs = (Read-OptionalUtf8File -Path $StdoutPath) + "`n" + (Read-OptionalUtf8File -Path $StderrPath)
 
     if ($combinedLogs.Contains($Pattern)) {
       return
@@ -164,6 +164,19 @@ function Wait-ForLogPattern {
   }
 
   throw "$ProcessName не подтвердил готовность в логах за $TimeoutSeconds секунд."
+}
+
+function Read-OptionalUtf8File {
+  param([string]$Path)
+
+  # Логи дочерних ROS-процессов иногда появляются с небольшой задержкой или
+  # не создаются вовсе, если stderr/stdout были пустыми. Для orchestration это
+  # нормальная ситуация, поэтому читаем файл мягко и возвращаем пустую строку.
+  $content = Get-Content -Path $Path -Raw -Encoding UTF8 -ErrorAction SilentlyContinue
+  if ($null -eq $content) {
+    return ''
+  }
+  return [string]$content
 }
 
 Write-Host '[ИНФО] Подготавливаем воспроизведение датасета камеры.'
@@ -212,6 +225,7 @@ try {
       '-p', "required_frames:=$FeatureRequiredFrames",
       '-p', "max_runtime_seconds:=$FeatureMaxRuntimeSeconds",
       '-p', "log_every_n_frames:=$FeatureLogEveryNFrames",
+      '-p', "skip_initial_frames:=$FeatureSkipInitialFrames",
       '-p', "max_features:=$FeatureMaxFeatures",
       '-p', "grid_rows:=$FeatureGridRows",
       '-p', "grid_cols:=$FeatureGridCols",
@@ -271,19 +285,11 @@ try {
       throw "$subscriberName не завершился после окончания bagplay за $waitSeconds секунд."
     }
 
-    $subscriberStdoutText = if (Test-Path $subscriberStdout) {
-      Get-Content $subscriberStdout -Raw -Encoding UTF8
-    } else {
-      ''
-    }
+    $subscriberStdoutText = Read-OptionalUtf8File -Path $subscriberStdout
     if ($subscriberStdoutText) {
       $subscriberStdoutText | Write-Host
     }
-    $stderrContent = if (Test-Path $subscriberStderr) {
-      Get-Content $subscriberStderr -Raw -Encoding UTF8
-    } else {
-      ''
-    }
+    $stderrContent = Read-OptionalUtf8File -Path $subscriberStderr
     if ($stderrContent) {
       $stderrContent | Write-Host
     }

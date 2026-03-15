@@ -152,6 +152,14 @@ function Write-SlamExperimentSummary {
   $trajectoryFound = Get-ObjectValue -Object $Manifest -PathSegments @('backend_result', 'artifacts', 'trajectory_found') -DefaultValue $false
   $mapFound = Get-ObjectValue -Object $Manifest -PathSegments @('backend_result', 'artifacts', 'map_found') -DefaultValue $false
   $runtimeLogFound = Get-ObjectValue -Object $Manifest -PathSegments @('backend_result', 'artifacts', 'runtime_log_found') -DefaultValue $false
+  $trajectoryAnalysisSuccess = Get-ObjectValue -Object $Manifest -PathSegments @('backend_result', 'analysis', 'trajectory', 'success') -DefaultValue $null
+  $trajectoryReportPath = [string](Get-ObjectValue -Object $Manifest -PathSegments @('backend_result', 'analysis', 'trajectory', 'report_path') -DefaultValue '')
+  $trajectorySummaryPath = [string](Get-ObjectValue -Object $Manifest -PathSegments @('backend_result', 'analysis', 'trajectory', 'summary_path') -DefaultValue '')
+  $trajectoryAnalysisError = [string](Get-ObjectValue -Object $Manifest -PathSegments @('backend_result', 'analysis', 'trajectory', 'error_message') -DefaultValue '')
+  $trajectorySampleCount = Get-ObjectValue -Object $Manifest -PathSegments @('backend_result', 'analysis', 'trajectory', 'metrics', 'sample_count') -DefaultValue $null
+  $trajectoryPathLength = Get-ObjectValue -Object $Manifest -PathSegments @('backend_result', 'analysis', 'trajectory', 'metrics', 'path_length_m') -DefaultValue $null
+  $trajectoryNetDisplacement = Get-ObjectValue -Object $Manifest -PathSegments @('backend_result', 'analysis', 'trajectory', 'metrics', 'net_displacement_m') -DefaultValue $null
+  $trajectoryMeanSpeed = Get-ObjectValue -Object $Manifest -PathSegments @('backend_result', 'analysis', 'trajectory', 'metrics', 'mean_speed_mps') -DefaultValue $null
   $preflightReportPath = [string](Get-ObjectValue -Object $Manifest -PathSegments @('checks', 'preflight_report_path') -DefaultValue '')
   $featureReportPath = [string](Get-ObjectValue -Object $Manifest -PathSegments @('checks', 'feature_report_path') -DefaultValue '')
   $backendRunLabel = if ($null -eq $backendExecutionSuccess) {
@@ -213,6 +221,27 @@ function Write-SlamExperimentSummary {
     "- runtime_log_found: $runtimeLogFound"
   )
 
+  # Trajectory-отчёт держим отдельным блоком, чтобы инженер мог быстро понять,
+  # можно ли уже сравнивать два backend-прогона по геометрическим метрикам.
+  if ($null -ne $trajectoryAnalysisSuccess -or -not [string]::IsNullOrWhiteSpace($trajectoryReportPath)) {
+    $summaryLines += @(
+      '',
+      '## Анализ trajectory',
+      '',
+      "- trajectory_analysis_success: $(if ($null -eq $trajectoryAnalysisSuccess) { '<не запускался>' } else { [string]$trajectoryAnalysisSuccess })",
+      "- trajectory_report_path: $(if ([string]::IsNullOrWhiteSpace($trajectoryReportPath)) { '<не заполнено>' } else { $trajectoryReportPath })",
+      "- trajectory_summary_path: $(if ([string]::IsNullOrWhiteSpace($trajectorySummaryPath)) { '<не заполнено>' } else { $trajectorySummaryPath })",
+      "- trajectory_sample_count: $(if ($null -eq $trajectorySampleCount) { '<не заполнено>' } else { [string]$trajectorySampleCount })",
+      "- trajectory_path_length_m: $(if ($null -eq $trajectoryPathLength) { '<не заполнено>' } else { [string]$trajectoryPathLength })",
+      "- trajectory_net_displacement_m: $(if ($null -eq $trajectoryNetDisplacement) { '<не заполнено>' } else { [string]$trajectoryNetDisplacement })",
+      "- trajectory_mean_speed_mps: $(if ($null -eq $trajectoryMeanSpeed) { '<не заполнено>' } else { [string]$trajectoryMeanSpeed })"
+    )
+
+    if (-not [string]::IsNullOrWhiteSpace($trajectoryAnalysisError)) {
+      $summaryLines += @('', '## Ошибка анализа trajectory', '', $trajectoryAnalysisError)
+    }
+  }
+
   $summaryLines += @('', '## Следующие шаги', '')
   if ([bool](Get-ObjectValue -Object $Manifest -PathSegments @('experiment', 'ready_for_slam') -DefaultValue $false)) {
     if ($backendExecutionSuccess -eq $true) {
@@ -230,6 +259,8 @@ function Write-SlamExperimentSummary {
 function ConvertTo-SlamExperimentCatalogEntry {
   param([object]$Manifest)
 
+  # В каталог складываем только самые полезные сводные поля, чтобы по одному
+  # JSON/CSV было видно и входное качество потока, и качество backend-результата.
   return [pscustomobject][ordered]@{
     experiment_name = $Manifest.experiment_name
     generated_at_utc = $Manifest.generated_at_utc
@@ -248,6 +279,12 @@ function ConvertTo-SlamExperimentCatalogEntry {
     backend_success = [bool](Get-ObjectValue -Object $Manifest -PathSegments @('backend_result', 'runner', 'success') -DefaultValue $false)
     backend_exit_code = Get-ObjectValue -Object $Manifest -PathSegments @('backend_result', 'runner', 'exit_code') -DefaultValue $null
     trajectory_found = [bool](Get-ObjectValue -Object $Manifest -PathSegments @('backend_result', 'artifacts', 'trajectory_found') -DefaultValue $false)
+    trajectory_analysis_success = [bool](Get-ObjectValue -Object $Manifest -PathSegments @('backend_result', 'analysis', 'trajectory', 'success') -DefaultValue $false)
+    trajectory_sample_count = Get-ObjectValue -Object $Manifest -PathSegments @('backend_result', 'analysis', 'trajectory', 'metrics', 'sample_count') -DefaultValue $null
+    trajectory_duration_sec = Get-ObjectValue -Object $Manifest -PathSegments @('backend_result', 'analysis', 'trajectory', 'metrics', 'duration_sec') -DefaultValue $null
+    trajectory_path_length_m = Get-ObjectValue -Object $Manifest -PathSegments @('backend_result', 'analysis', 'trajectory', 'metrics', 'path_length_m') -DefaultValue $null
+    trajectory_net_displacement_m = Get-ObjectValue -Object $Manifest -PathSegments @('backend_result', 'analysis', 'trajectory', 'metrics', 'net_displacement_m') -DefaultValue $null
+    trajectory_mean_speed_mps = Get-ObjectValue -Object $Manifest -PathSegments @('backend_result', 'analysis', 'trajectory', 'metrics', 'mean_speed_mps') -DefaultValue $null
     map_found = [bool](Get-ObjectValue -Object $Manifest -PathSegments @('backend_result', 'artifacts', 'map_found') -DefaultValue $false)
     runtime_log_found = [bool](Get-ObjectValue -Object $Manifest -PathSegments @('backend_result', 'artifacts', 'runtime_log_found') -DefaultValue $false)
     experiment_root = $Manifest.experiment_root
@@ -271,12 +308,14 @@ function Export-SlamExperimentCatalogTables {
     "- generated_at_utc: $($Catalog.generated_at_utc)",
     "- experiment_count: $($Catalog.experiment_count)",
     '',
-    '| experiment_name | dataset_name | backend | ready | backend_success | avg_fps | avg_keypoints | map_quality | tracking_lost |',
-    '| --- | --- | --- | --- | --- | --- | --- | --- | --- |'
+    '| experiment_name | dataset_name | backend | ready | backend_success | traj_path_m | traj_speed_mps | avg_fps | avg_keypoints | map_quality | tracking_lost |',
+    '| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |'
   )
   foreach ($row in $rows) {
     $trackingLostLabel = Get-ExperimentTrackingLostLabel -Value $row.tracking_lost
-    $markdownLines += "| $($row.experiment_name) | $($row.dataset_name) | $($row.slam_backend) | $($row.ready_for_slam) | $($row.backend_success) | $($row.average_fps) | $($row.average_keypoints) | $($row.map_quality) | $trackingLostLabel |"
+    $trajectoryLengthLabel = if ($null -eq $row.trajectory_path_length_m) { 'n/a' } else { $row.trajectory_path_length_m }
+    $trajectorySpeedLabel = if ($null -eq $row.trajectory_mean_speed_mps) { 'n/a' } else { $row.trajectory_mean_speed_mps }
+    $markdownLines += "| $($row.experiment_name) | $($row.dataset_name) | $($row.slam_backend) | $($row.ready_for_slam) | $($row.backend_success) | $trajectoryLengthLabel | $trajectorySpeedLabel | $($row.average_fps) | $($row.average_keypoints) | $($row.map_quality) | $trackingLostLabel |"
   }
   Set-Content -Path $markdownPath -Value ($markdownLines -join "`r`n") -Encoding UTF8
 
@@ -294,6 +333,12 @@ function Export-SlamExperimentCatalogTables {
     map_quality,
     tracking_lost,
     trajectory_found,
+    trajectory_analysis_success,
+    trajectory_sample_count,
+    trajectory_duration_sec,
+    trajectory_path_length_m,
+    trajectory_net_displacement_m,
+    trajectory_mean_speed_mps,
     map_found,
     runtime_log_found,
     experiment_root,
@@ -398,6 +443,10 @@ function Compare-SlamExperimentManifests {
   $candidateBackendSuccess = Get-ObjectValue -Object $CandidateManifest -PathSegments @('backend_result', 'runner', 'success') -DefaultValue $null
   $baselineTrackingLost = Get-ObjectValue -Object $BaselineManifest -PathSegments @('manual_assessment', 'tracking_lost') -DefaultValue $null
   $candidateTrackingLost = Get-ObjectValue -Object $CandidateManifest -PathSegments @('manual_assessment', 'tracking_lost') -DefaultValue $null
+  $baselineTrajectoryAnalysisSuccess = Get-ObjectValue -Object $BaselineManifest -PathSegments @('backend_result', 'analysis', 'trajectory', 'success') -DefaultValue $null
+  $candidateTrajectoryAnalysisSuccess = Get-ObjectValue -Object $CandidateManifest -PathSegments @('backend_result', 'analysis', 'trajectory', 'success') -DefaultValue $null
+  $baselinePathLength = Get-ObjectValue -Object $BaselineManifest -PathSegments @('backend_result', 'analysis', 'trajectory', 'metrics', 'path_length_m') -DefaultValue $null
+  $candidatePathLength = Get-ObjectValue -Object $CandidateManifest -PathSegments @('backend_result', 'analysis', 'trajectory', 'metrics', 'path_length_m') -DefaultValue $null
 
   $notes = @()
   if (-not $sameDataset) {
@@ -412,8 +461,17 @@ function Compare-SlamExperimentManifests {
   if ($baselineBackendSuccess -eq $true -and $candidateBackendSuccess -eq $false) {
     $notes += 'У кандидата наблюдается регрессия выполнения backend относительно baseline.'
   }
+  if ($baselineTrajectoryAnalysisSuccess -eq $true -and $candidateTrajectoryAnalysisSuccess -ne $true) {
+    $notes += 'У кандидата отсутствует валидный trajectory report, хотя у baseline он был.'
+  }
   if ($baselineTrackingLost -eq $false -and $candidateTrackingLost -eq $true) {
     $notes += 'Кандидат потерял трекинг там, где baseline ещё удерживал его.'
+  }
+  if ($null -ne $baselinePathLength -and $baselinePathLength -gt 0.0 -and $null -ne $candidatePathLength) {
+    $pathRatio = [double]$candidatePathLength / [double]$baselinePathLength
+    if ($pathRatio -lt 0.8) {
+      $notes += 'Кандидат прошёл заметно более короткую trajectory относительно baseline; это может означать раннюю потерю трекинга или неполное покрытие сцены.'
+    }
   }
   if ($notes.Count -eq 0) {
     $notes += 'Критичных регрессий на уровне входных и backend-метрик не обнаружено; сравните trajectory и карту вручную.'
@@ -468,6 +526,32 @@ function Compare-SlamExperimentManifests {
         -BaselineValue (Get-ObjectValue -Object $BaselineManifest -PathSegments @('feature_monitor', 'average_brightness') -DefaultValue $null) `
         -CandidateValue (Get-ObjectValue -Object $CandidateManifest -PathSegments @('feature_monitor', 'average_brightness') -DefaultValue $null)
     }
+    trajectory = [ordered]@{
+      sample_count = New-MetricComparison `
+        -MetricName 'trajectory_sample_count' `
+        -BaselineValue (Get-ObjectValue -Object $BaselineManifest -PathSegments @('backend_result', 'analysis', 'trajectory', 'metrics', 'sample_count') -DefaultValue $null) `
+        -CandidateValue (Get-ObjectValue -Object $CandidateManifest -PathSegments @('backend_result', 'analysis', 'trajectory', 'metrics', 'sample_count') -DefaultValue $null)
+      duration_sec = New-MetricComparison `
+        -MetricName 'trajectory_duration_sec' `
+        -BaselineValue (Get-ObjectValue -Object $BaselineManifest -PathSegments @('backend_result', 'analysis', 'trajectory', 'metrics', 'duration_sec') -DefaultValue $null) `
+        -CandidateValue (Get-ObjectValue -Object $CandidateManifest -PathSegments @('backend_result', 'analysis', 'trajectory', 'metrics', 'duration_sec') -DefaultValue $null)
+      path_length_m = New-MetricComparison `
+        -MetricName 'trajectory_path_length_m' `
+        -BaselineValue (Get-ObjectValue -Object $BaselineManifest -PathSegments @('backend_result', 'analysis', 'trajectory', 'metrics', 'path_length_m') -DefaultValue $null) `
+        -CandidateValue (Get-ObjectValue -Object $CandidateManifest -PathSegments @('backend_result', 'analysis', 'trajectory', 'metrics', 'path_length_m') -DefaultValue $null)
+      net_displacement_m = New-MetricComparison `
+        -MetricName 'trajectory_net_displacement_m' `
+        -BaselineValue (Get-ObjectValue -Object $BaselineManifest -PathSegments @('backend_result', 'analysis', 'trajectory', 'metrics', 'net_displacement_m') -DefaultValue $null) `
+        -CandidateValue (Get-ObjectValue -Object $CandidateManifest -PathSegments @('backend_result', 'analysis', 'trajectory', 'metrics', 'net_displacement_m') -DefaultValue $null)
+      mean_speed_mps = New-MetricComparison `
+        -MetricName 'trajectory_mean_speed_mps' `
+        -BaselineValue (Get-ObjectValue -Object $BaselineManifest -PathSegments @('backend_result', 'analysis', 'trajectory', 'metrics', 'mean_speed_mps') -DefaultValue $null) `
+        -CandidateValue (Get-ObjectValue -Object $CandidateManifest -PathSegments @('backend_result', 'analysis', 'trajectory', 'metrics', 'mean_speed_mps') -DefaultValue $null)
+      max_step_m = New-MetricComparison `
+        -MetricName 'trajectory_max_step_m' `
+        -BaselineValue (Get-ObjectValue -Object $BaselineManifest -PathSegments @('backend_result', 'analysis', 'trajectory', 'metrics', 'max_step_m') -DefaultValue $null) `
+        -CandidateValue (Get-ObjectValue -Object $CandidateManifest -PathSegments @('backend_result', 'analysis', 'trajectory', 'metrics', 'max_step_m') -DefaultValue $null)
+    }
     backend = [ordered]@{
       baseline_success = $baselineBackendSuccess
       candidate_success = $candidateBackendSuccess
@@ -475,6 +559,8 @@ function Compare-SlamExperimentManifests {
       candidate_exit_code = Get-ObjectValue -Object $CandidateManifest -PathSegments @('backend_result', 'runner', 'exit_code') -DefaultValue $null
       baseline_trajectory_found = [bool](Get-ObjectValue -Object $BaselineManifest -PathSegments @('backend_result', 'artifacts', 'trajectory_found') -DefaultValue $false)
       candidate_trajectory_found = [bool](Get-ObjectValue -Object $CandidateManifest -PathSegments @('backend_result', 'artifacts', 'trajectory_found') -DefaultValue $false)
+      baseline_trajectory_analysis_success = $baselineTrajectoryAnalysisSuccess
+      candidate_trajectory_analysis_success = $candidateTrajectoryAnalysisSuccess
       baseline_map_found = [bool](Get-ObjectValue -Object $BaselineManifest -PathSegments @('backend_result', 'artifacts', 'map_found') -DefaultValue $false)
       candidate_map_found = [bool](Get-ObjectValue -Object $CandidateManifest -PathSegments @('backend_result', 'artifacts', 'map_found') -DefaultValue $false)
     }

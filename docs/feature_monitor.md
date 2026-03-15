@@ -30,6 +30,7 @@
 ## Полезные параметры
 
 - `required_frames` — сколько кадров собрать до итоговой оценки;
+- `skip_initial_frames` — сколько первых кадров пропустить как прогревочные;
 - `max_runtime_seconds` — максимальное время ожидания;
 - `max_features` — лимит ORB-feature на кадр;
 - `grid_rows`, `grid_cols` — сетка покрытия кадра;
@@ -51,7 +52,7 @@
 Если живая камера не нужна, используйте уже записанный bag:
 
 ```powershell
-.\scripts\run_dataset_playback.ps1 -BagPath C:\путь\к\bag -RunFeatureMonitor -FeatureRequiredFrames 10
+.\scripts\run_dataset_playback.ps1 -BagPath C:\путь\к\bag -RunFeatureMonitor -FeatureRequiredFrames 10 -FeatureSkipInitialFrames 10
 ```
 
 Или сразу сохраните отдельный JSON-отчёт:
@@ -59,6 +60,8 @@
 ```powershell
 .\scripts\run_dataset_feature_report.ps1 -BagPath C:\путь\к\bag
 ```
+
+По умолчанию offline feature-report пропускает первые 10 кадров. Это снижает флак при bag, записанном с ноутбучной камеры, когда автоэкспозиция и баланс белого ещё стабилизируются в самом начале записи.
 
 ## Как читать summary
 

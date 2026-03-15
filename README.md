@@ -6,13 +6,14 @@
 
 - реализован собственный узел `camera_publisher` на C++ с публикацией `sensor_msgs/msg/Image` и `sensor_msgs/msg/CameraInfo`;
 - реализован диагностический subscriber `image_counter` с параметрами `image_topic` и `max_frames`;
-- реализован узел `camera_slam_preflight`, который проверяет согласованность `Image`/`CameraInfo` и измеряет фактический FPS потока;
+- реализован узел `camera_slam_preflight`, который проверяет согласованность `Image`/`CameraInfo`, измеряет фактический FPS потока и умеет переживать повреждённые `header.stamp` при bag playback;
 - реализован узел `camera_feature_monitor`, который оценивает число ORB-feature, покрытие кадра, резкость и яркость потока;
 - добавлены сценарии записи и воспроизведения rosbag-датасета для повторяемых SLAM-прогонов без живой камеры;
 - добавлены offline-отчёты по dataset playback: отдельно для preflight и для feature-качества потока;
 - добавлен пакет эксперимента monocular SLAM, который собирает отчёты и manifest по bag в один reproducible каталог;
 - добавлен реестр экспериментов monocular SLAM: каталог experiment packet, offline-сравнение двух прогонов и шаблоны ручной оценки backend;
 - добавлен backend-agnostic runner для внешнего SLAM backend с сохранением trajectory/map/runtime-артефактов в experiment packet;
+- добавлен автоматический trajectory-report для backend-результатов и сравнение experiment packet по длине/скорости траектории;
 - вынесена тестируемая логика подготовки кадров и `CameraInfo` в библиотеку `camera_utils`;
 - добавлены unit-тесты для валидации параметров, преобразования кадров, генерации `Image` и `CameraInfo`;
 - добавлены launch-файлы, smoke-тесты, сценарий полного прогона и скрипты сборки/диагностики;
@@ -49,6 +50,7 @@
 - `scripts/run_slam_backend.ps1` — запуск внешнего SLAM backend поверх готового experiment packet;
 - `scripts/mock_slam_backend.ps1` — mock-backend для smoke-проверки orchestration без реального SLAM;
 - `scripts/slam_backend_runner_smoke_test.ps1` — smoke-тест backend runner;
+- `scripts/trajectory_report_utils.ps1` — разбор стандартного trajectory CSV и построение reproducible trajectory-report;
 - `scripts/update_slam_experiment_catalog.ps1` — пересборка сводного каталога experiment packet;
 - `scripts/slam_experiment_compare_smoke_test.ps1` — smoke-тест сравнения двух SLAM-экспериментов;
 - `scripts/update_dataset_catalog.ps1` — пересборка общего каталога датасетов из `artifacts/datasets/`;
@@ -226,7 +228,7 @@ scripts\build_workspace.cmd
   -ConfigFile config/slam_backend.mock.template.json
 ```
 
-Скрипт запускает внешний процесс, сохраняет `stdout/stderr`, проверяет выходные артефакты и обновляет `experiment_manifest.json`, `experiment_summary.md` и каталог экспериментов.
+Скрипт запускает внешний процесс, сохраняет `stdout/stderr`, проверяет выходные артефакты, строит `reports/trajectory_report.json` и обновляет `experiment_manifest.json`, `experiment_summary.md` и каталог экспериментов.
 
 ### 20. Smoke-тест backend runner
 
@@ -234,7 +236,7 @@ scripts\build_workspace.cmd
 .\scripts\slam_backend_runner_smoke_test.ps1
 ```
 
-Он использует mock-backend и подтверждает, что experiment registry умеет хранить не только входные отчёты, но и результат запуска backend.
+Он использует mock-backend и подтверждает, что experiment registry умеет хранить не только входные отчёты, но и результат запуска backend вместе с trajectory-report.
 
 ## Важные параметры `camera_publisher`
 
