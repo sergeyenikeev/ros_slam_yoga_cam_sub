@@ -19,7 +19,7 @@
 - автоматическое обновление общего каталога экспериментов.
 
 Теперь следующий слой тоже уже подготовлен: отдельный backend runner умеет запускать внешний SLAM backend поверх готового experiment packet.
-Если backend сохраняет trajectory в формате `csv_pose_v1`, workflow автоматически строит отдельный trajectory-report и включает его в manifest.
+Если backend сохраняет trajectory в формате `csv_pose_v1` или `tum_pose_v1`, workflow автоматически строит отдельный trajectory-report и включает его в manifest.
 Для feature-report шаблонный конфиг дополнительно пропускает первые 10 кадров bag как прогревочные, чтобы автоэкспозиция ноутбучной камеры не делала smoke-прогоны флак.
 
 Это делает дальнейшую интеграцию реального SLAM backend воспроизводимой.
@@ -138,6 +138,14 @@ artifacts/slam_experiments/slam_experiment_<timestamp>/
 - `experiment_summary.md`
 - общий реестр экспериментов в JSON/Markdown/CSV
 
+Для первого реального monocular backend теперь уже подготовлен пилотный adapter layer под ORB-SLAM3:
+
+```powershell
+.\scripts\run_slam_backend.ps1 `
+  -ExperimentPath C:\путь\к\experiment `
+  -ConfigFile config/slam_backend.orbslam3.template.json
+```
+
 ## Как это использовать дальше
 
 Следующий практический шаг — расширить experiment packet результатами реального backend:
@@ -153,6 +161,7 @@ artifacts/slam_experiments/slam_experiment_<timestamp>/
 - есть `run_slam_backend.ps1` для запуска внешнего backend;
 - есть `mock_slam_backend.ps1` и smoke-проверка orchestration;
 - есть автоматический trajectory-report и offline-сравнение trajectory-метрик;
+- есть пилотный ORB-SLAM3 adapter layer с отдельным smoke-тестом и поддержкой `tum_pose_v1`;
 - каталог экспериментов теперь экспортируется не только в JSON, но и в Markdown/CSV.
 
 То есть этот workflow уже можно считать каркасом для полноценного `SLAM experiment registry`.

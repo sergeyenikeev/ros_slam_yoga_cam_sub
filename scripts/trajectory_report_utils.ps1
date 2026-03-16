@@ -16,7 +16,8 @@ function ConvertTo-InvariantDouble {
   param(
     [string]$Value,
     [string]$FieldName,
-    [int]$RowNumber
+    [int]$RowNumber,
+    [string]$FormatName = 'trajectory'
   )
 
   try {
@@ -26,7 +27,23 @@ function ConvertTo-InvariantDouble {
       [System.Globalization.CultureInfo]::InvariantCulture)
   }
   catch {
-    throw "Не удалось разобрать поле '$FieldName' в строке trajectory CSV #${RowNumber}: '$Value'."
+    throw "Не удалось разобрать поле '$FieldName' в строке ${FormatName} #${RowNumber}: '$Value'."
+  }
+}
+
+function New-TrajectorySample {
+  param(
+    [double]$TimestampSec,
+    [double]$X,
+    [double]$Y,
+    [double]$Z
+  )
+
+  return [pscustomobject][ordered]@{
+    timestamp_sec = $TimestampSec
+    x = $X
+    y = $Y
+    z = $Z
   }
 }
 
@@ -58,22 +75,65 @@ function Read-CsvPoseV1Trajectory {
     # timestamp + позиция камеры. Этого уже достаточно, чтобы автоматически
     # сравнивать длину траектории, смещение и среднюю скорость между прогонами
     # без привязки к внутреннему формату конкретного backend.
-    $samples.Add([pscustomobject][ordered]@{
-        timestamp_sec = ConvertTo-InvariantDouble -Value ([string]$row.timestamp_sec) -FieldName 'timestamp_sec' -RowNumber $rowNumber
-        x = ConvertTo-InvariantDouble -Value ([string]$row.x) -FieldName 'x' -RowNumber $rowNumber
-        y = ConvertTo-InvariantDouble -Value ([string]$row.y) -FieldName 'y' -RowNumber $rowNumber
-        z = ConvertTo-InvariantDouble -Value ([string]$row.z) -FieldName 'z' -RowNumber $rowNumber
-      })
+    $samples.Add((New-TrajectorySample `
+        -TimestampSec (ConvertTo-InvariantDouble -Value ([string]$row.timestamp_sec) -FieldName 'timestamp_sec' -RowNumber $rowNumber -FormatName 'csv_pose_v1') `
+        -X (ConvertTo-InvariantDouble -Value ([string]$row.x) -FieldName 'x' -RowNumber $rowNumber -FormatName 'csv_pose_v1') `
+        -Y (ConvertTo-InvariantDouble -Value ([string]$row.y) -FieldName 'y' -RowNumber $rowNumber -FormatName 'csv_pose_v1') `
+        -Z (ConvertTo-InvariantDouble -Value ([string]$row.z) -FieldName 'z' -RowNumber $rowNumber -FormatName 'csv_pose_v1')))
   }
 
   return ,([object[]]$samples.ToArray())
 }
 
-function Measure-CsvPoseV1Trajectory {
+function Read-TumPoseV1Trajectory {
+  param([string]$Path)
+
+  if (-not (Test-Path $Path)) {
+    throw "Файл trajectory не найден: $Path"
+  }
+
+  $lineNumber = 0
+  $sampleNumber = 0
+  $samples = [System.Collections.Generic.List[object]]::new()
+
+  foreach ($rawLine in (Get-Content -Path $Path -Encoding UTF8)) {
+    $lineNumber++
+    $line = [string]$rawLine
+    if ([string]::IsNullOrWhiteSpace($line)) {
+      continue
+    }
+
+    $trimmedLine = $line.Trim()
+    if ($trimmedLine.StartsWith('#')) {
+      continue
+    }
+
+    $parts = @($trimmedLine -split '\s+')
+    if ($parts.Count -lt 8) {
+      throw "Строка tum_pose_v1 #${lineNumber} должна содержать минимум 8 колонок: timestamp tx ty tz qx qy qz qw."
+    }
+
+    $sampleNumber++
+    $samples.Add((New-TrajectorySample `
+        -TimestampSec (ConvertTo-InvariantDouble -Value $parts[0] -FieldName 'timestamp' -RowNumber $lineNumber -FormatName 'tum_pose_v1') `
+        -X (ConvertTo-InvariantDouble -Value $parts[1] -FieldName 'tx' -RowNumber $lineNumber -FormatName 'tum_pose_v1') `
+        -Y (ConvertTo-InvariantDouble -Value $parts[2] -FieldName 'ty' -RowNumber $lineNumber -FormatName 'tum_pose_v1') `
+        -Z (ConvertTo-InvariantDouble -Value $parts[3] -FieldName 'tz' -RowNumber $lineNumber -FormatName 'tum_pose_v1')))
+  }
+
+  if ($sampleNumber -eq 0) {
+    throw "Файл trajectory пустой: $Path"
+  }
+
+  return ,([object[]]$samples.ToArray())
+}
+
+function Measure-TrajectorySamples {
   param(
     [object[]]$Samples,
     [string]$TrajectoryPath,
-    [string]$BackendName
+    [string]$BackendName,
+    [string]$TrajectoryFormat
   )
 
   if (-not $Samples -or $Samples.Count -eq 0) {
@@ -144,7 +204,7 @@ function Measure-CsvPoseV1Trajectory {
     generated_at_utc = (Get-Date).ToUniversalTime().ToString('o')
     backend_name = $BackendName
     trajectory_path = $TrajectoryPath
-    trajectory_format = 'csv_pose_v1'
+    trajectory_format = $TrajectoryFormat
     sample_count = $sampleCount
     duration_sec = [Math]::Round($durationSec, 6)
     path_length_m = [Math]::Round($pathLength, 6)
@@ -176,6 +236,34 @@ function Measure-CsvPoseV1Trajectory {
       z = [Math]::Round($endPose.z, 6)
     }
   }
+}
+
+function Measure-CsvPoseV1Trajectory {
+  param(
+    [object[]]$Samples,
+    [string]$TrajectoryPath,
+    [string]$BackendName
+  )
+
+  return Measure-TrajectorySamples `
+    -Samples $Samples `
+    -TrajectoryPath $TrajectoryPath `
+    -BackendName $BackendName `
+    -TrajectoryFormat 'csv_pose_v1'
+}
+
+function Measure-TumPoseV1Trajectory {
+  param(
+    [object[]]$Samples,
+    [string]$TrajectoryPath,
+    [string]$BackendName
+  )
+
+  return Measure-TrajectorySamples `
+    -Samples $Samples `
+    -TrajectoryPath $TrajectoryPath `
+    -BackendName $BackendName `
+    -TrajectoryFormat 'tum_pose_v1'
 }
 
 function Write-TrajectoryReportArtifacts {

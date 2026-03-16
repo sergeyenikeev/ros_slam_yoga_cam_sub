@@ -64,6 +64,9 @@ try {
       Write-Host "`n=== Smoke-тест backend runner SLAM ==="
       & (Join-Path $PSScriptRoot 'slam_backend_runner_smoke_test.ps1')
 
+      Write-Host "`n=== Smoke-тест ORB-SLAM3 adapter ==="
+      & (Join-Path $PSScriptRoot 'orbslam3_backend_adapter_smoke_test.ps1')
+
       Write-Host "`n=== Smoke-тест сравнения экспериментов SLAM ==="
       & (Join-Path $PSScriptRoot 'slam_experiment_compare_smoke_test.ps1')
     }

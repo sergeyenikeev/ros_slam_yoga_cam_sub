@@ -1,0 +1,51 @@
+{
+  "backend_runner": {
+    "backend_name": "orbslam3_monocular",
+    "template_variables": {
+      "orbslam3_command": "C:/replace_with_orbslam3/path/to/orbslam3_topic_backend.exe",
+      "orbslam3_workdir": "C:/replace_with_orbslam3/runtime",
+      "orbslam3_vocabulary_path": "C:/replace_with_orbslam3/Vocabulary/ORBvoc.txt",
+      "orbslam3_settings_path": "C:/replace_with_orbslam3/config/yoga_cam_sub_monocular.yaml",
+      "orbslam3_trajectory_source": "CameraTrajectory.txt",
+      "orbslam3_playback_rate": "1.0",
+      "orbslam3_startup_delay_sec": "5",
+      "orbslam3_post_playback_grace_sec": "10"
+    },
+    "command": "scripts/run_orbslam3_backend.ps1",
+    "arguments": [
+      "-BagPath",
+      "{bag_root}",
+      "-ExperimentName",
+      "{experiment_name}",
+      "-TrajectoryPath",
+      "{trajectory_path}",
+      "-RuntimeLogPath",
+      "{runtime_log_path}",
+      "-BackendCommand",
+      "{orbslam3_command}",
+      "-VocabularyPath",
+      "{orbslam3_vocabulary_path}",
+      "-SettingsPath",
+      "{orbslam3_settings_path}",
+      "-BackendWorkingDirectory",
+      "{orbslam3_workdir}",
+      "-TrajectorySourcePath",
+      "{orbslam3_trajectory_source}",
+      "-PlaybackRate",
+      "{orbslam3_playback_rate}",
+      "-StartupDelaySeconds",
+      "{orbslam3_startup_delay_sec}",
+      "-PostPlaybackGraceSeconds",
+      "{orbslam3_post_playback_grace_sec}",
+      "-UseRosEnvForBackend"
+    ],
+    "working_directory": "{experiment_root}",
+    "timeout_seconds": 0,
+    "trajectory_path": "backend_artifacts/orbslam3/CameraTrajectory.txt",
+    "trajectory_format": "tum_pose_v1",
+    "map_path": "",
+    "runtime_log_path": "backend_artifacts/orbslam3/orbslam3_runtime.log",
+    "result_notes": "Pilot topic-based ORB-SLAM3 integration on top of the experiment workflow.",
+    "allow_failure": false
+  }
+}

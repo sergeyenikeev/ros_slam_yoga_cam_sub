@@ -14,6 +14,8 @@
 - добавлен реестр экспериментов monocular SLAM: каталог experiment packet, offline-сравнение двух прогонов и шаблоны ручной оценки backend;
 - добавлен backend-agnostic runner для внешнего SLAM backend с сохранением trajectory/map/runtime-артефактов в experiment packet;
 - добавлен автоматический trajectory-report для backend-результатов и сравнение experiment packet по длине/скорости траектории;
+- начата пилотная интеграция первого реального monocular backend через ORB-SLAM3 adapter layer;
+- добавлена поддержка trajectory-формата `tum_pose_v1`, типичного для ORB-SLAM3-совместимых интеграций;
 - вынесена тестируемая логика подготовки кадров и `CameraInfo` в библиотеку `camera_utils`;
 - добавлены unit-тесты для валидации параметров, преобразования кадров, генерации `Image` и `CameraInfo`;
 - добавлены launch-файлы, smoke-тесты, сценарий полного прогона и скрипты сборки/диагностики;
@@ -32,6 +34,7 @@
 - `config/camera_calibration.template.yaml` — шаблон для реальной калибровки;
 - `config/camera_calibration.sample.yaml` — пример стандартного YAML-файла от `camera_calibration`;
 - `config/slam_backend.mock.template.json` — шаблон mock-конфигурации для проверки backend runner;
+- `config/slam_backend.orbslam3.template.json` — пилотный шаблон реальной интеграции ORB-SLAM3 backend;
 - `launch/camera_publisher.launch.py` — запуск только publisher;
 - `launch/camera_pipeline.launch.py` — совместный запуск publisher и subscriber;
 - `launch/camera_slam_preflight.launch.py` — запуск publisher и preflight-проверки в одном сценарии;
@@ -48,8 +51,12 @@
 - `scripts/slam_experiment_smoke_test.ps1` — smoke-тест experiment workflow;
 - `scripts/compare_slam_experiments.ps1` — offline-сравнение двух experiment packet по ключевым метрикам;
 - `scripts/run_slam_backend.ps1` — запуск внешнего SLAM backend поверх готового experiment packet;
+- `scripts/run_orbslam3_backend.ps1` — adapter wrapper для topic-based ORB-SLAM3 backend поверх bag playback;
+- `scripts/new_orbslam3_backend_config.ps1` — генерация локального JSON-конфига ORB-SLAM3 из шаблона;
+- `scripts/check_orbslam3_setup.ps1` — проверка внешних путей, experiment packet и готовности setup перед реальным запуском;
 - `scripts/mock_slam_backend.ps1` — mock-backend для smoke-проверки orchestration без реального SLAM;
 - `scripts/slam_backend_runner_smoke_test.ps1` — smoke-тест backend runner;
+- `scripts/orbslam3_backend_adapter_smoke_test.ps1` — smoke-тест ORB-SLAM3 adapter layer и `tum_pose_v1`;
 - `scripts/trajectory_report_utils.ps1` — разбор стандартного trajectory CSV и построение reproducible trajectory-report;
 - `scripts/update_slam_experiment_catalog.ps1` — пересборка сводного каталога experiment packet;
 - `scripts/slam_experiment_compare_smoke_test.ps1` — smoke-тест сравнения двух SLAM-экспериментов;
@@ -106,7 +113,7 @@ scripts\build_workspace.cmd
 ```
 
 Сценарий последовательно выполняет диагностику окружения, сборку, unit/lint тесты, smoke-тест subscriber, проверку YAML-калибровки, проверку реальных топиков, SLAM preflight smoke-тест, dataset bag smoke-тест с preflight/report/feature-report и launch smoke-тест.
-Дополнительно он проверяет reproducible experiment workflow: сборку experiment packet, запуск mock backend runner и offline-сравнение двух SLAM-экспериментов.
+Дополнительно он проверяет reproducible experiment workflow: сборку experiment packet, запуск mock backend runner, ORB-SLAM3 adapter smoke и offline-сравнение двух SLAM-экспериментов.
 
 ### 6. Подготовка калибровки
 
@@ -230,6 +237,16 @@ scripts\build_workspace.cmd
 
 Скрипт запускает внешний процесс, сохраняет `stdout/stderr`, проверяет выходные артефакты, строит `reports/trajectory_report.json` и обновляет `experiment_manifest.json`, `experiment_summary.md` и каталог экспериментов.
 
+Для реального monocular-пилота уже подготовлен отдельный шаблон:
+
+```powershell
+.\scripts\run_slam_backend.ps1 `
+  -ExperimentPath C:\dev\ros2_ws\src\yoga_cam_sub\artifacts\slam_experiments\my_experiment `
+  -ConfigFile config/slam_backend.orbslam3.template.json
+```
+
+Этот путь рассчитан на topic-based ORB-SLAM3 adapter и понимает `tum_pose_v1`, чтобы типовой `CameraTrajectory.txt` сразу попадал в общий trajectory-report.
+
 ### 20. Smoke-тест backend runner
 
 ```powershell
@@ -237,6 +254,36 @@ scripts\build_workspace.cmd
 ```
 
 Он использует mock-backend и подтверждает, что experiment registry умеет хранить не только входные отчёты, но и результат запуска backend вместе с trajectory-report.
+
+### 21. Smoke-тест ORB-SLAM3 adapter layer
+
+```powershell
+.\scripts\orbslam3_backend_adapter_smoke_test.ps1
+```
+
+Этот сценарий проверяет новый topic-based adapter path: wrapper orchestration, перенос `CameraTrajectory.txt` и построение `trajectory_report.json` из `tum_pose_v1`.
+
+### 22. Создание local config и preflight-проверка ORB-SLAM3 setup
+
+```powershell
+.\scripts\new_orbslam3_backend_config.ps1 `
+  -OutputFile config/slam_backend.orbslam3.local.json `
+  -BackendCommand C:\orbslam3\bin\orbslam3_ros2_bridge.exe `
+  -WorkingDirectory C:\orbslam3\runtime `
+  -VocabularyPath C:\orbslam3\Vocabulary\ORBvoc.txt `
+  -SettingsPath C:\orbslam3\config\yoga_cam_sub_monocular.yaml
+```
+
+Затем можно сразу проверить, что все внешние пути и experiment packet действительно на месте:
+
+```powershell
+.\scripts\check_orbslam3_setup.ps1 `
+  -ConfigFile config/slam_backend.orbslam3.local.json `
+  -ExperimentPath C:\path\to\experiment `
+  -CheckRosEnv
+```
+
+Полный подробный runbook по установке, настройке и запуску лежит в `docs/orbslam3_backend_integration.md`.
 
 ## Важные параметры `camera_publisher`
 
@@ -319,6 +366,7 @@ scripts\build_workspace.cmd
 - `docs/slam_preflight.md` — подробности по автоматической preflight-проверке потока;
 - `docs/feature_monitor.md` — оценка visual-feature качества потока и интерпретация метрик;
 - `docs/slam_experiment_workflow.md` — как собирать и хранить reproducible experiment packets для SLAM;
+- `docs/orbslam3_backend_integration.md` — текущее состояние пилотной интеграции ORB-SLAM3 поверх experiment workflow;
 - `docs/codebase_overview.md` — обзор ключевых файлов и архитектуры пакета;
 - `docs/remaining_work_plan.md` — подробный roadmap оставшихся задач;
 - `docs/dataset_capture.md` — запись, воспроизведение, каталогизация и отчётность по rosbag-датасетам для offline SLAM-проверок.

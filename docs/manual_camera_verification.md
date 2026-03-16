@@ -190,3 +190,17 @@ scripts\run_in_ros_env.cmd ros2 run yoga_cam_sub camera_publisher --ros-args -p 
 ```cmd
 scripts\run_in_ros_env.cmd ros2 run yoga_cam_sub camera_publisher --ros-args -p device_index:=1
 ```
+
+## 15. Что делать после успешной проверки камеры
+
+Когда камера, калибровка и bag уже подтверждены, следующий шаг для monocular backend теперь подробно расписан отдельно:
+
+- `docs/orbslam3_backend_integration.md`
+
+Практический минимальный маршрут дальше такой:
+
+1. записать эталонный bag;
+2. собрать `experiment packet` через `run_slam_experiment.ps1`;
+3. создать local config через `new_orbslam3_backend_config.ps1`;
+4. проверить setup через `check_orbslam3_setup.ps1`;
+5. запустить `run_slam_backend.ps1`.

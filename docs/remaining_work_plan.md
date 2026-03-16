@@ -81,7 +81,10 @@ Definition of done:
 
 ### 2.1. Выбрать backend
 
-Статус: не начато.
+Статус: начато.
+
+Для первого monocular-пилота выбран `ORB-SLAM3 wrapper`.
+Это решение уже отражено в отдельном adapter layer и документации, но финальная runtime-валидация всё ещё зависит от внешней установки backend на целевой машине.
 
 Нужно принять инженерное решение между вариантами:
 
@@ -96,6 +99,11 @@ Definition of done:
 - оценить сложность локальной сборки на Windows;
 - выбрать первый backend для пилотной интеграции.
 
+Уже сделано:
+
+- для пилотной ветки выбран `ORB-SLAM3 wrapper`;
+- добавлен документ `docs/orbslam3_backend_integration.md` с причинами выбора и ограничениями.
+
 Definition of done:
 
 - выбран один конкретный backend для первой интеграции;
@@ -103,7 +111,7 @@ Definition of done:
 
 ### 2.2. Добавить адаптер запуска выбранного backend
 
-Статус: не начато.
+Статус: начато.
 
 Задачи:
 
@@ -115,13 +123,19 @@ Definition of done:
 - добавить wrapper-скрипт запуска;
 - логировать входные параметры эксперимента.
 
+Уже сделано:
+
+- добавлен `scripts/run_orbslam3_backend.ps1`;
+- добавлен `config/slam_backend.orbslam3.template.json`;
+- добавлен smoke-контур `config/slam_backend.orbslam3.mock.template.json` и `scripts/orbslam3_backend_adapter_smoke_test.ps1`.
+
 Definition of done:
 
 - backend стартует через один reproducible launch/script.
 
 ### 2.3. Зафиксировать выходные артефакты backend
 
-Статус: не начато.
+Статус: частично начато.
 
 Задачи:
 
@@ -132,6 +146,12 @@ Definition of done:
   - runtime stats;
 - описать, куда эти файлы/топики будут складываться;
 - добавить единый каталог для результатов эксперимента.
+
+Уже сделано:
+
+- trajectory в формате `tum_pose_v1` теперь нормализуется в общий `trajectory_report.json`;
+- runtime-log ORB-SLAM3 adapter сохраняется в experiment packet;
+- путь для карты оставлен опциональным вторым шагом.
 
 Definition of done:
 
@@ -286,10 +306,10 @@ Definition of done:
 
 ## 8. Мой рекомендуемый следующий шаг прямо сейчас
 
-Самый логичный следующий инженерный шаг: **начать интеграцию конкретного monocular SLAM backend через reproducible experiment workflow**.
+Самый логичный следующий инженерный шаг: **довести пилотную ORB-SLAM3 интеграцию до первого реального запуска на эталонном bag**.
 
 Если идти без лишних скачков, то порядок такой:
 
-1. выбрать первый backend;
-2. добавить `launch/<backend>_experiment.launch.py`;
-3. расширить `run_slam_experiment.ps1`, чтобы он умел запускать backend и сохранять его результаты рядом с preflight/feature-report.
+1. поставить или собрать внешний ORB-SLAM3 backend / bridge на целевой машине;
+2. заполнить реальные пути в `config/slam_backend.orbslam3.template.json`;
+3. запустить backend на эталонном experiment packet и зафиксировать первый реальный trajectory-report.

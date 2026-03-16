@@ -29,6 +29,9 @@ public:
     validate_parameters();
     preload_calibration_source();
 
+    // Для камеры используем SensorDataQoS: downstream consumer-ы вроде preflight,
+    // feature-monitor и будущего SLAM backend должны видеть поток с минимальной
+    // latency, а не ждать надёжной доставки старых кадров.
     const auto qos = rclcpp::SensorDataQoS();
     image_pub_ = this->create_publisher<sensor_msgs::msg::Image>(camera_parameters_.image_topic, qos);
     camera_info_pub_ =
@@ -36,6 +39,8 @@ public:
 
     open_camera();
 
+    // Период таймера привязываем к целевому FPS, чтобы и live-run, и bag capture
+    // шли из одной и той же конфигурации, которую потом анализируют preflight/report.
     const auto period = std::chrono::duration<double>(1.0 / camera_parameters_.fps);
     timer_ = this->create_wall_timer(
       std::chrono::duration_cast<std::chrono::milliseconds>(period),
@@ -66,6 +71,8 @@ public:
 private:
   void load_parameters()
   {
+    // Сначала читаем runtime-параметры самой камеры и топиков, а затем отдельным
+    // блоком - источник калибровки. Это упрощает диагностику в логах при запуске.
     camera_parameters_.device_index = static_cast<int>(this->declare_parameter<std::int64_t>("device_index", 0));
     camera_parameters_.width = static_cast<int>(this->declare_parameter<std::int64_t>("width", 640));
     camera_parameters_.height = static_cast<int>(this->declare_parameter<std::int64_t>("height", 360));
@@ -108,6 +115,8 @@ private:
 
   void validate_parameters()
   {
+    // Fail fast на некорректной конфигурации важен для automation-скриптов:
+    // лучше упасть до открытия камеры, чем получить неочевидную runtime-ошибку.
     const auto errors = yoga_cam_sub::validate_camera_parameters(camera_parameters_);
     if (errors.empty()) {
       return;
@@ -124,6 +133,9 @@ private:
 
   bool has_inline_calibration_settings() const
   {
+    // Inline-калибровка считается заданной, если пользователь переопределил хотя бы
+    // один блок матриц/коэффициентов. При наличии calibration_file приоритет всё равно
+    // остаётся за файлом, чтобы не смешивать два источника правды.
     return distortion_model_ != "plumb_bob" ||
       !distortion_coefficients_.empty() ||
       !camera_matrix_.empty() ||
@@ -328,6 +340,9 @@ private:
       cv::Mat frame = yoga_cam_sub::prepare_frame_for_publish(raw_frame);
       refresh_calibration_if_needed(frame.size());
 
+      // Image и CameraInfo публикуем с одним и тем же stamp в одном callback-е.
+      // Для downstream SLAM это минимальный контракт синхронности, даже если
+      // upstream-камера не даёт отдельный hardware timestamp.
       const auto stamp = this->now();
       auto image_message = yoga_cam_sub::build_image_message(
         frame,

@@ -143,6 +143,35 @@ function ConvertTo-PowerShellLiteral {
   return "'" + ($Value -replace "'", "''") + "'"
 }
 
+function Add-TemplateVariablesToContext {
+  param(
+    $TemplateVariables,
+    [hashtable]$Context
+  )
+
+  $resolvedVariables = [ordered]@{}
+  if ($null -eq $TemplateVariables) {
+    return $resolvedVariables
+  }
+
+  foreach ($property in $TemplateVariables.PSObject.Properties) {
+    $key = [string]$property.Name
+    if ([string]::IsNullOrWhiteSpace($key)) {
+      continue
+    }
+    if ($Context.ContainsKey($key)) {
+      throw "Пользовательская template-переменная '$key' конфликтует со встроенным ключом backend runner."
+    }
+
+    $rawValue = [string]$property.Value
+    $expandedValue = Expand-TemplateString -Value $rawValue -Context $Context
+    $Context[$key] = $expandedValue
+    $resolvedVariables[$key] = $expandedValue
+  }
+
+  return $resolvedVariables
+}
+
 $manifestPath = Resolve-SlamExperimentManifestPath -Path $ExperimentPath
 $experimentRoot = Split-Path -Parent $manifestPath
 $summaryPath = Get-SlamExperimentSummaryPath -ExperimentRoot $experimentRoot
@@ -222,6 +251,7 @@ $effectiveResultNotes = if (-not [string]::IsNullOrWhiteSpace($ResultNotes)) {
 } else {
   [string](Get-ConfigValue -Config $backendConfig -PathSegments @('result_notes') -DefaultValue '')
 }
+$effectiveTemplateVariables = Get-ConfigValue -Config $backendConfig -PathSegments @('template_variables') -DefaultValue $null
 $effectiveAllowFailure = if ($AllowFailure.IsPresent) {
   $true
 } else {
@@ -247,21 +277,19 @@ $templateContext = @{
   bag_root = $manifest.bag_root
   reports_root = Join-Path $experimentRoot 'reports'
   backend_root = $backendRoot
-  trajectory_path = Resolve-ExperimentArtifactPath -ExperimentRoot $experimentRoot -PathValue (Expand-TemplateString -Value $effectiveTrajectoryPathTemplate -Context @{
-    experiment_root = $experimentRoot
-    backend_root = $backendRoot
-  })
-  map_path = Resolve-ExperimentArtifactPath -ExperimentRoot $experimentRoot -PathValue (Expand-TemplateString -Value $effectiveMapPathTemplate -Context @{
-    experiment_root = $experimentRoot
-    backend_root = $backendRoot
-  })
-  runtime_log_path = Resolve-ExperimentArtifactPath -ExperimentRoot $experimentRoot -PathValue (Expand-TemplateString -Value $effectiveRuntimeLogPathTemplate -Context @{
-    experiment_root = $experimentRoot
-    backend_root = $backendRoot
-  })
   stdout_log_path = $stdoutLogPath
   stderr_log_path = $stderrLogPath
 }
+$resolvedTemplateVariables = Add-TemplateVariablesToContext -TemplateVariables $effectiveTemplateVariables -Context $templateContext
+$templateContext['trajectory_path'] = Resolve-ExperimentArtifactPath `
+  -ExperimentRoot $experimentRoot `
+  -PathValue (Expand-TemplateString -Value $effectiveTrajectoryPathTemplate -Context $templateContext)
+$templateContext['map_path'] = Resolve-ExperimentArtifactPath `
+  -ExperimentRoot $experimentRoot `
+  -PathValue (Expand-TemplateString -Value $effectiveMapPathTemplate -Context $templateContext)
+$templateContext['runtime_log_path'] = Resolve-ExperimentArtifactPath `
+  -ExperimentRoot $experimentRoot `
+  -PathValue (Expand-TemplateString -Value $effectiveRuntimeLogPathTemplate -Context $templateContext)
 
 $resolvedCommandTemplate = Expand-TemplateString -Value $effectiveCommandTemplate -Context $templateContext
 $resolvedArgumentValues = @()
@@ -348,15 +376,26 @@ if ($trajectoryFound) {
   if ([string]::IsNullOrWhiteSpace($effectiveTrajectoryFormat)) {
     $trajectoryAnalysis.error_message = 'Для найденного trajectory не задан trajectory_format в конфигурации backend runner.'
     Write-Host "[ПРЕДУПРЕЖДЕНИЕ] $($trajectoryAnalysis.error_message)"
-  } elseif ($effectiveTrajectoryFormat -eq 'csv_pose_v1') {
+  } elseif ($effectiveTrajectoryFormat -eq 'csv_pose_v1' -or $effectiveTrajectoryFormat -eq 'tum_pose_v1') {
     try {
       # Trajectory переводим в единый отчёт сразу после backend run, чтобы
       # сравнение экспериментов не зависело от конкретного backend и его логов.
-      $trajectorySamples = Read-CsvPoseV1Trajectory -Path $templateContext.trajectory_path
-      $trajectoryReport = Measure-CsvPoseV1Trajectory `
-        -Samples $trajectorySamples `
-        -TrajectoryPath $templateContext.trajectory_path `
-        -BackendName $effectiveBackendName
+      if ($effectiveTrajectoryFormat -eq 'csv_pose_v1') {
+        $trajectorySamples = Read-CsvPoseV1Trajectory -Path $templateContext.trajectory_path
+        $trajectoryReport = Measure-CsvPoseV1Trajectory `
+          -Samples $trajectorySamples `
+          -TrajectoryPath $templateContext.trajectory_path `
+          -BackendName $effectiveBackendName
+      } else {
+        # ORB-SLAM3 и совместимые backend обычно сохраняют trajectory в TUM-like
+        # текстовом формате, поэтому поддерживаем его в общем experiment registry
+        # на том же уровне, что и наш внутренний CSV-контракт.
+        $trajectorySamples = Read-TumPoseV1Trajectory -Path $templateContext.trajectory_path
+        $trajectoryReport = Measure-TumPoseV1Trajectory `
+          -Samples $trajectorySamples `
+          -TrajectoryPath $templateContext.trajectory_path `
+          -BackendName $effectiveBackendName
+      }
       Write-TrajectoryReportArtifacts `
         -TrajectoryReport $trajectoryReport `
         -ReportPath $trajectoryReportPath `
@@ -411,6 +450,7 @@ $manifest.backend_result = [ordered]@{
     invocation_file = $invocationFile
     arguments = $resolvedArgumentValues
     working_directory = $resolvedWorkingDirectory
+    template_variables = $resolvedTemplateVariables
     timeout_seconds = $effectiveTimeoutSeconds
     trajectory_format = $effectiveTrajectoryFormat
     allow_failure = $effectiveAllowFailure
@@ -452,5 +492,4 @@ Write-Host "[ИНФО] experiment_count=$($catalog.experiment_count)"
 if (-not $backendRunSuccess -and -not $effectiveAllowFailure) {
   throw 'Внешний monocular SLAM backend завершился неуспешно.'
 }
-
 

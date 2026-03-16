@@ -17,7 +17,7 @@
 - запустить внешний backend командой или скриптом;
 - сохранить `stdout` и `stderr` backend в каталог эксперимента;
 - проверить наличие trajectory / map / runtime-log;
-- построить единый `trajectory_report.json` по стандартному CSV-контракту;
+- построить единый `trajectory_report.json` по поддержанному trajectory-контракту;
 - обновить manifest, summary и общий каталог экспериментов.
 
 Это позволяет поэтапно готовить реальную интеграцию SLAM даже до установки конкретного backend в текущий Windows underlay.
@@ -65,9 +65,16 @@
 config/slam_backend.mock.template.json
 ```
 
+Для пилотной реальной интеграции теперь есть и отдельный шаблон:
+
+```text
+config/slam_backend.orbslam3.template.json
+```
+
 Поддерживаются поля:
 
 - `backend_name`
+- `template_variables`
 - `command`
 - `arguments`
 - `working_directory`
@@ -79,7 +86,12 @@ config/slam_backend.mock.template.json
 - `result_notes`
 - `allow_failure`
 
-Если backend пишет trajectory в поддержанном формате `csv_pose_v1`, runner автоматически строит trajectory-report и включает его в manifest.
+Сейчас runner понимает два trajectory-формата:
+
+- `csv_pose_v1` — внутренний минимальный CSV-контракт;
+- `tum_pose_v1` — TUM-like текстовый формат, типичный для ORB-SLAM3-совместимых интеграций.
+
+Если backend пишет trajectory в одном из этих форматов, runner автоматически строит trajectory-report и включает его в manifest.
 
 В строковых полях можно использовать шаблоны:
 
@@ -95,6 +107,15 @@ config/slam_backend.mock.template.json
 - `{runtime_log_path}`
 - `{stdout_log_path}`
 - `{stderr_log_path}`
+
+Через `template_variables` можно добавить backend-specific placeholder-ы, например:
+
+- `{orbslam3_command}`
+- `{orbslam3_vocabulary_path}`
+- `{orbslam3_settings_path}`
+- `{orbslam3_workdir}`
+
+Это позволяет держать основной runner backend-agnostic, а machine-specific пути выносить в конкретный backend template.
 
 ## Auto-run backend из experiment config
 
@@ -119,3 +140,20 @@ config/slam_backend.mock.template.json
 ```
 
 Smoke-сценарий использует `scripts/mock_slam_backend.ps1`, который создаёт фиктивные trajectory/map/runtime-артефакты и подтверждает, что orchestration, manifest и catalog обновляются корректно.
+
+Для ORB-SLAM3 adapter layer есть отдельная smoke-проверка:
+
+```powershell
+.\scripts\orbslam3_backend_adapter_smoke_test.ps1
+```
+
+Она проверяет уже новый путь через `scripts/run_orbslam3_backend.ps1` и `tum_pose_v1`.
+
+Для реальной машины с внешним backend удобно использовать ещё два вспомогательных скрипта:
+
+```powershell
+.\scripts\new_orbslam3_backend_config.ps1
+.\scripts\check_orbslam3_setup.ps1
+```
+
+Первый создаёт локальный JSON-конфиг из шаблона, второй проверяет, что executable, vocabulary, settings file и experiment packet действительно готовы к запуску.
